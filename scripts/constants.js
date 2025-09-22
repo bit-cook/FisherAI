@@ -110,7 +110,7 @@ const DEFAULT_LLM_URLS = [
 
 // 支持图像的模型
 const IMAGE_SUPPORT_MODELS = ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'chatgpt-4o-latest', 
-  'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash-lite-preview-06-17', 'gemini-1.5-flash-8b',
+  'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash-lite-preview-06-17', 'gemini-1.5-flash-8b','google/gemini-2.5-flash-lite-preview-06-17',
   'glm-4v', 'yi-vision-v2', 'moonshot-v1-32k-vision-preview', 'google/gemini-2.0-flash-exp:free', 
   'openai/gpt-4o', 'openai/gpt-4.1', 'google/gemini-2.0-flash-001', 'anthropic/claude-3.7-sonnet', 
   'grok-4-0709',
@@ -183,9 +183,10 @@ const DEFAULT_FILE_LOGO_PATH = "/images/file.png";
 const MODEL_LIST = {
   // 免费模型
   free_models: [
-    { value: "google/gemini-2.0-flash-exp:free", display: "Gemini 2.0 Flash", provider: PROVIDER_FISHERAI },
-    { value: "deepseek/deepseek-r1:free", display: "Deepseek R1", provider: PROVIDER_FISHERAI },
+    { value: "google/gemini-2.5-flash-lite-preview-06-17", display: "Gemini 2.5 Flash Lite", provider: PROVIDER_FISHERAI },
+    { value: "deepseek/deepseek-r1-0528:free", display: "Deepseek R1 0528", provider: PROVIDER_FISHERAI },
     { value: "deepseek/deepseek-chat-v3-0324:free", display: "Deepseek V3 0324", provider: PROVIDER_FISHERAI },
+    { value: "moonshotai/kimi-k2", display: "Kimi K2", provider: PROVIDER_FISHERAI },
   ],
   // 自定义配置模型
   custom_config_models: [
