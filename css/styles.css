@@ -527,6 +527,26 @@
   margin: 20px 0;
 }
 
+.error-message__title {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.error-message__detail {
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.error-message__raw {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
 .user-message {
   position: relative;
   align-self: flex-end;
@@ -1176,6 +1196,18 @@
   color: #E53E3E;
   border: 1px solid #FEB2B2;
   background-color: #FFF5F5;
+}
+
+.light-mode .error-message__title {
+  color: #C53030;
+}
+
+.light-mode .error-message__detail {
+  color: #742A2A;
+}
+
+.light-mode .error-message__raw {
+  color: rgba(74, 85, 104, 0.85);
 }
 
 /* Additional Light Mode Refinements */

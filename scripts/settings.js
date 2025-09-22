@@ -420,7 +420,8 @@ function loadOllamaModelsForQuickTrans() {
         if (response.ok) {
           return response.json();
         } else {
-          throw new Error('Network response was not ok.');
+          const statusInfo = [response.status, response.statusText].filter(Boolean).join(' ');
+          throw new Error(`拉取 Ollama 模型失败${statusInfo ? `（${statusInfo}）` : ''}`);
         }
       })
       .then(data => {

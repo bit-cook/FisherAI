@@ -493,11 +493,86 @@ async function getModelParameters() {
   };
 }
 
+function flattenErrorMessages(value) {
+  if (value == null) {
+    return [];
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    const text = String(value).trim();
+    return text ? [text] : [];
+  }
+  if (Array.isArray(value)) {
+    const collected = [];
+    for (const item of value) {
+      collected.push(...flattenErrorMessages(item));
+    }
+    return collected;
+  }
+  if (typeof value === 'object') {
+    const messages = [];
+    if (typeof value.message === 'string') {
+      const messageText = value.message.trim();
+      if (messageText) {
+        messages.push(messageText);
+      }
+    }
+    if (value.error !== undefined) {
+      messages.push(...flattenErrorMessages(value.error));
+    }
+    if (value.errors !== undefined) {
+      messages.push(...flattenErrorMessages(value.errors));
+    }
+    if (value.detail !== undefined) {
+      messages.push(...flattenErrorMessages(value.detail));
+    }
+    if (value.reason !== undefined) {
+      messages.push(...flattenErrorMessages(value.reason));
+    }
+    if (value.description !== undefined) {
+      messages.push(...flattenErrorMessages(value.description));
+    }
+    return messages.filter(Boolean);
+  }
+  return [];
+}
+
+function extractErrorMessageFromResponse(errorData) {
+  if (errorData == null) {
+    return '';
+  }
+  if (typeof errorData === 'string') {
+    return errorData;
+  }
+  const messages = flattenErrorMessages(errorData);
+  if (messages.length > 0) {
+    return messages.join('；');
+  }
+  if (typeof errorData === 'object') {
+    try {
+      const serialized = JSON.stringify(errorData);
+      return serialized === '{}' ? '' : serialized;
+    } catch (serializationError) {
+      return '';
+    }
+  }
+  return String(errorData);
+}
+
+function buildResponseErrorMessage(response, message, context) {
+  const statusInfo = [response.status, response.statusText].filter(Boolean).join(' ');
+  const prefixBase = context || '接口返回错误';
+  const prefix = statusInfo ? `${prefixBase}（${statusInfo}）` : prefixBase;
+  if (message && message.trim()) {
+    return `${prefix}：${message.trim()}`;
+  }
+  return prefix;
+}
+
 /**
  * LLM 接口请求 & 解析
- * @param {string} baseUrl 
- * @param {string} params 
- * @param {string} type 
+ * @param {string} baseUrl
+ * @param {string} params
+ * @param {string} type
  * @param {string} provider
  * @returns 
  */
@@ -511,12 +586,26 @@ async function fetchAndHandleResponse(baseUrl, params, type, provider) {
 
     console.log(response);
     if (!response.ok) {
-      // 错误响应
-      const errorJson = await response.json();
-      console.error('Error response JSON:', errorJson);
-      throw new Error("错误信息：" + errorJson.error.message);
-    } 
-    
+      let errorMessage = '';
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('json')) {
+        try {
+          const errorJson = await response.json();
+          console.error('Error response JSON:', errorJson);
+          errorMessage = extractErrorMessageFromResponse(errorJson);
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+        }
+      } else {
+        try {
+          errorMessage = (await response.text()).trim();
+        } catch (textError) {
+          console.error('Failed to read error response text:', textError);
+        }
+      }
+      throw new Error(buildResponseErrorMessage(response, errorMessage));
+    }
+
     const result = await parseAndUpdateChatContent(response, type, provider);
     return result;
   } catch (error) {
@@ -1230,11 +1319,25 @@ async function callSerpAPI(query) {
   const response = await fetch(url);
   // console.log(response);
   if (!response.ok) {
-    // 错误响应
-    const errorJson = await response.json();
-    console.error('Error response JSON:', errorJson);
-    throw new Error('Network response was not ok.');
-  } 
+    let errorMessage = '';
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('json')) {
+      try {
+        const errorJson = await response.json();
+        console.error('Error response JSON:', errorJson);
+        errorMessage = extractErrorMessageFromResponse(errorJson);
+      } catch (parseError) {
+        console.error('Failed to parse SerpAPI error response:', parseError);
+      }
+    } else {
+      try {
+        errorMessage = (await response.text()).trim();
+      } catch (textError) {
+        console.error('Failed to read SerpAPI error response text:', textError);
+      }
+    }
+    throw new Error(buildResponseErrorMessage(response, errorMessage, 'SerpAPI 请求失败'));
+  }
 
   const data = await response.json(); 
   
@@ -1275,11 +1378,25 @@ async function callDALLE(prompt, quality, size, style) {
   // console.log('params>>', params);
   // console.log(response);
   if (!response.ok) {
-    // 错误响应
-    const errorJson = await response.json();
-    console.error('Error response JSON:', errorJson);
-    throw new Error('Network response was not ok.');
-  } 
+    let errorMessage = '';
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('json')) {
+      try {
+        const errorJson = await response.json();
+        console.error('Error response JSON:', errorJson);
+        errorMessage = extractErrorMessageFromResponse(errorJson);
+      } catch (parseError) {
+        console.error('Failed to parse DALLE error response:', parseError);
+      }
+    } else {
+      try {
+        errorMessage = (await response.text()).trim();
+      } catch (textError) {
+        console.error('Failed to read DALLE error response text:', textError);
+      }
+    }
+    throw new Error(buildResponseErrorMessage(response, errorMessage, 'DALLE 请求失败'));
+  }
 
   const data = await response.json();
   return data;

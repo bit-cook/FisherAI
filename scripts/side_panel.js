@@ -127,9 +127,13 @@ async function verifyApiKeyConfigured(provider) {
  */
 function hideRecommandContent() {
   const sloganDiv = document.querySelector('.my-extension-slogan');
-  sloganDiv.style.display = 'none';
+  if (sloganDiv) {
+    sloganDiv.style.display = 'none';
+  }
   const featureDiv = document.querySelector('.feature-container');
-  featureDiv.style.display = 'none';
+  if (featureDiv) {
+    featureDiv.style.display = 'none';
+  }
 }
 
 /**
@@ -137,9 +141,13 @@ function hideRecommandContent() {
  */
 function showRecommandContent() {
   const sloganDiv = document.querySelector('.my-extension-slogan');
-  sloganDiv.style.display = '';
+  if (sloganDiv) {
+    sloganDiv.style.display = '';
+  }
   const featureDiv = document.querySelector('.feature-container');
-  featureDiv.style.display = '';
+  if (featureDiv) {
+    featureDiv.style.display = '';
+  }
 }
 
 /**
@@ -187,8 +195,11 @@ async function chatLLMAndUIUpdate(model, provider, inputText, base64Images) {
     createCopyButton(completeText);
   } catch (error) {
     hiddenLoadding();
-    displayErrorMessage(`${error.message}`);
     console.error('请求异常:', error);
+    displayErrorMessage(error, {
+      context: '生成回答',
+      defaultMessage: '暂时无法生成回答，请稍后再试或检查模型配置。'
+    });
   } finally {
     // submit & generating button
     showSubmitBtnAndHideGenBtn();
@@ -401,7 +412,8 @@ function loadOllamaModels(callback) {
         if (response.ok) {
           return response.json();
         } else {
-          throw new Error('Network response was not ok.');
+          const statusInfo = [response.status, response.statusText].filter(Boolean).join(' ');
+          throw new Error(`拉取 Ollama 模型失败${statusInfo ? `（${statusInfo}）` : ''}`);
         }
       })
       .then(data => {
@@ -712,7 +724,10 @@ function initResultPage() {
       } catch(error) {
         hiddenLoadding();
         console.error('智能摘要失败', error);
-        displayErrorMessage(`智能摘要失败: ${error.message}`);
+        displayErrorMessage(error, {
+          context: '智能摘要',
+          defaultMessage: '暂时无法生成摘要，请稍后重试。'
+        });
         return;
       }
 
@@ -750,7 +765,10 @@ function initResultPage() {
       } catch(error) {
         hiddenLoadding();
         console.error('网页翻译失败', error);
-        displayErrorMessage(`网页翻译失败: ${error.message}`);
+        displayErrorMessage(error, {
+          context: '网页翻译',
+          defaultMessage: '暂时无法翻译当前页面，请稍后重试。'
+        });
         return;
       }
 
@@ -783,12 +801,15 @@ function initResultPage() {
       } catch(error) {
         hiddenLoadding();
         console.error('视频翻译失败', error);
-        displayErrorMessage(`视频翻译失败: ${error.message}`);
+        displayErrorMessage(error, {
+          context: '视频翻译',
+          defaultMessage: '暂时无法翻译当前视频，请稍后再试。'
+        });
         return;
       }
 
       const subTitleTransPrompt = await getSubTitleTransPrompt();
-     
+
       await clearAndGenerate(model, provider, subTitleTransPrompt + inputText, null);
     });
 
@@ -1223,14 +1244,131 @@ function isVideoUrl(url) {
   return patterns.some(pattern => pattern.test(url));
 }
 
+function normalizeErrorTitle(context, explicitTitle) {
+  if (explicitTitle) {
+    return explicitTitle;
+  }
+  if (context) {
+    if (/(失败|异常|错误|取消)$/.test(context)) {
+      return context;
+    }
+    return `${context}失败`;
+  }
+  return '请求异常';
+}
+
+function extractErrorMessageText(errorInput) {
+  if (errorInput == null) {
+    return '';
+  }
+  if (errorInput instanceof Error && typeof errorInput.message === 'string') {
+    return errorInput.message;
+  }
+  if (typeof errorInput === 'string') {
+    return errorInput;
+  }
+  if (typeof errorInput === 'object') {
+    if (typeof errorInput.message === 'string') {
+      return errorInput.message;
+    }
+    if (typeof errorInput.error === 'string') {
+      return errorInput.error;
+    }
+    if (errorInput.error && typeof errorInput.error.message === 'string') {
+      return errorInput.error.message;
+    }
+    if (typeof errorInput.statusText === 'string') {
+      return errorInput.statusText;
+    }
+    try {
+      const serialized = JSON.stringify(errorInput);
+      return serialized === '{}' ? '' : serialized;
+    } catch (serializationError) {
+      return '';
+    }
+  }
+  return String(errorInput);
+}
+
+function deriveFriendlyErrorDetail(rawMessage, defaultMessage) {
+  const fallbackDetail = defaultMessage || '发生未知错误，请稍后重试。';
+  const trimmedMessage = (rawMessage || '').trim();
+  if (!trimmedMessage) {
+    return { detail: fallbackDetail, raw: '' };
+  }
+
+  const normalized = trimmedMessage.toLowerCase();
+  const mappings = [
+    { pattern: /(aborterror|the operation was aborted|request was aborted|user aborted)/i, message: '请求已取消。' },
+    { pattern: /(failed to fetch|networkerror|network request failed|net::|connection (?:refused|reset|aborted|closed)|dns|ssl|certificate)/i, message: '网络请求失败，请检查网络连接或 API 代理配置。' },
+    { pattern: /(timeout|timed out|超时)/i, message: '请求超时，请稍后重试。' },
+    { pattern: /(401|unauthorized|invalid api key|incorrect api key|no api key)/i, message: '身份验证失败，请检查 API Key 是否正确配置。' },
+    { pattern: /(429|too many requests|rate limit)/i, message: '请求过于频繁，请稍后再试。' },
+    { pattern: /(insufficient[_\s-]?quota|余额不足|\bquota\b|\bquotas\b|credit limit|\bcredit\b)/i, message: '账号配额不足，请检查账户状态或更换模型。' },
+    { pattern: /(403|forbidden|access denied|permission)/i, message: '服务拒绝请求，可能是权限或配额不足。' },
+    { pattern: /(500|502|503|504|server error|bad gateway|service unavailable)/i, message: '服务暂时不可用，请稍后重试。' }
+  ];
+
+  for (const mapping of mappings) {
+    if (mapping.pattern.test(normalized)) {
+      return { detail: mapping.message, raw: trimmedMessage };
+    }
+  }
+
+  return { detail: trimmedMessage, raw: '' };
+}
+
+function buildErrorDisplayInfo(errorInput, options) {
+  const opts = options || {};
+  const rawMessage = extractErrorMessageText(errorInput);
+  const detailInfo = deriveFriendlyErrorDetail(rawMessage, opts.defaultMessage);
+  return {
+    title: normalizeErrorTitle(opts.context, opts.title),
+    detail: detailInfo.detail,
+    raw: detailInfo.raw && detailInfo.raw !== detailInfo.detail ? detailInfo.raw : ''
+  };
+}
+
 /**
  * 显示错误信息
- * @param {string} message 
+ * @param {Error|string|Object} errorInput
+ * @param {{context?: string, title?: string, defaultMessage?: string}|string} [options]
  */
-function displayErrorMessage(message) {
+function displayErrorMessage(errorInput, options) {
+  const normalizedOptions = typeof options === 'string' ? { context: options } : (options || {});
   hideRecommandContent();
   const contentDiv = document.querySelector('.chat-content');
-  contentDiv.innerHTML = `<div class="error-message">${message}</div>`;
+  if (!contentDiv) {
+    return;
+  }
+
+  const info = buildErrorDisplayInfo(errorInput, normalizedOptions);
+  const container = document.createElement('div');
+  container.className = 'error-message';
+
+  if (info.title) {
+    const titleElement = document.createElement('div');
+    titleElement.className = 'error-message__title';
+    titleElement.textContent = info.title;
+    container.appendChild(titleElement);
+  }
+
+  if (info.detail) {
+    const detailElement = document.createElement('div');
+    detailElement.className = 'error-message__detail';
+    detailElement.textContent = info.detail;
+    container.appendChild(detailElement);
+  }
+
+  if (info.raw) {
+    const rawElement = document.createElement('div');
+    rawElement.className = 'error-message__raw';
+    rawElement.textContent = `详细信息：${info.raw}`;
+    container.appendChild(rawElement);
+  }
+
+  contentDiv.innerHTML = '';
+  contentDiv.appendChild(container);
 }
  
 
