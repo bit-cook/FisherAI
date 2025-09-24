@@ -373,7 +373,15 @@ const TOOL_LOCALE_MAP = {
         tool_dalle_error: '图像生成失败',
         tool_dalle_prompt: '提示词',
         tool_dalle_view: '查看原图',
-        tool_dalle_download: '下载图片'
+        tool_dalle_download: '下载图片',
+        tool_nano_banana_title: 'Nano Banana 图像',
+        tool_nano_banana_running: '正在通过 nano-banana 生成图像…',
+        tool_nano_banana_success: '生成完成',
+        tool_nano_banana_error: 'nano-banana 图像生成失败',
+        tool_nano_banana_prompt: '提示词',
+        tool_nano_banana_view: '查看原图',
+        tool_nano_banana_download: '下载图片',
+        tool_image_gallery_fallback: '图片生成完成，请查看下方结果。'
     },
     'en': {
         tool_common_preparing: 'Queued…',
@@ -399,7 +407,15 @@ const TOOL_LOCALE_MAP = {
         tool_dalle_error: 'Image generation failed',
         tool_dalle_prompt: 'Prompt',
         tool_dalle_view: 'Open original',
-        tool_dalle_download: 'Download'
+        tool_dalle_download: 'Download',
+        tool_nano_banana_title: 'Nano Banana Images',
+        tool_nano_banana_running: 'Generating images via nano-banana…',
+        tool_nano_banana_success: 'Images ready',
+        tool_nano_banana_error: 'nano-banana image generation failed',
+        tool_nano_banana_prompt: 'Prompt',
+        tool_nano_banana_view: 'Open original',
+        tool_nano_banana_download: 'Download',
+        tool_image_gallery_fallback: 'Images ready. See below.'
     }
 };
 
@@ -727,16 +743,22 @@ function renderSerpApiResults(bodyEl, result, query) {
     }
 }
 
-function renderDalleImages(bodyEl, dalleResult, prompt) {
+function renderImageToolGallery(bodyEl, data, prompt, localePrefix, filenamePrefix) {
     if (!bodyEl) {
         return;
     }
     bodyEl.innerHTML = '';
 
+    const promptKey = `${localePrefix}_prompt`;
+    const errorKey = `${localePrefix}_error`;
+    const viewKey = `${localePrefix}_view`;
+    const downloadKey = `${localePrefix}_download`;
+    const titleKey = `${localePrefix}_title`;
+
     if (prompt) {
         const promptLabel = document.createElement('div');
         promptLabel.className = 'tool-card__section-title';
-        promptLabel.textContent = getToolLocaleText('tool_dalle_prompt');
+        promptLabel.textContent = getToolLocaleText(promptKey);
 
         const promptContent = document.createElement('div');
         promptContent.className = 'tool-card__prompt';
@@ -746,11 +768,11 @@ function renderDalleImages(bodyEl, dalleResult, prompt) {
         bodyEl.appendChild(promptContent);
     }
 
-    const data = Array.isArray(dalleResult?.data) ? dalleResult.data : [];
-    if (data.length === 0) {
+    const normalizedData = Array.isArray(data) ? data : [];
+    if (normalizedData.length === 0) {
         const emptyState = document.createElement('div');
         emptyState.className = 'tool-card__empty';
-        emptyState.textContent = getToolLocaleText('tool_dalle_error');
+        emptyState.textContent = getToolLocaleText(errorKey);
         bodyEl.appendChild(emptyState);
         return;
     }
@@ -758,13 +780,13 @@ function renderDalleImages(bodyEl, dalleResult, prompt) {
     const gallery = document.createElement('div');
     gallery.className = 'tool-card__gallery';
 
-    data.forEach((item, index) => {
+    normalizedData.forEach((item, index) => {
         const figure = document.createElement('div');
         figure.className = 'tool-card__figure';
 
         const image = document.createElement('img');
         image.className = 'tool-card__image';
-        image.alt = item.revised_prompt || `${getToolLocaleText('tool_dalle_title')} ${index + 1}`;
+        image.alt = item.revised_prompt || `${getToolLocaleText(titleKey)} ${index + 1}`;
 
         let imageUrl = '';
         if (item.url) {
@@ -781,20 +803,13 @@ function renderDalleImages(bodyEl, dalleResult, prompt) {
         actionBar.className = 'tool-card__actions';
 
         if (imageUrl) {
-            const viewLink = document.createElement('a');
-            viewLink.className = 'tool-card__button';
-            viewLink.href = imageUrl;
-            viewLink.target = '_blank';
-            viewLink.rel = 'noopener noreferrer';
-            viewLink.textContent = getToolLocaleText('tool_dalle_view');
-
             const downloadLink = document.createElement('a');
             downloadLink.className = 'tool-card__button';
             downloadLink.href = imageUrl;
-            downloadLink.download = `fisherai-dalle-${Date.now()}-${index + 1}.png`;
-            downloadLink.textContent = getToolLocaleText('tool_dalle_download');
+            const downloadId = item.id ? item.id.replace(/[^a-z0-9_-]+/gi, '') : `${Date.now()}-${index + 1}`;
+            downloadLink.download = `fisherai-${filenamePrefix}-${downloadId}.png`;
+            downloadLink.textContent = getToolLocaleText(downloadKey);
 
-            actionBar.appendChild(viewLink);
             actionBar.appendChild(downloadLink);
         }
 
@@ -812,6 +827,16 @@ function renderDalleImages(bodyEl, dalleResult, prompt) {
     });
 
     bodyEl.appendChild(gallery);
+}
+
+function renderDalleImages(bodyEl, dalleResult, prompt) {
+    const data = Array.isArray(dalleResult?.data) ? dalleResult.data : [];
+    renderImageToolGallery(bodyEl, data, prompt, 'tool_dalle', 'dalle');
+}
+
+function renderNanoBananaImages(bodyEl, nanoBananaResult, prompt) {
+    const assets = Array.isArray(nanoBananaResult?.assets) ? nanoBananaResult.assets : [];
+    renderImageToolGallery(bodyEl, assets, prompt, 'tool_nano_banana', 'nano-banana');
 }
 
 // 展示 loading

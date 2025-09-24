@@ -50,7 +50,7 @@ async function updateDynamicTexts(lang) {
   }
 }
 
-function storeParams(tabName, param1, param2, saveMessage, showTips = true, provider = '') {
+function storeParams(tabName, param1, param2, saveMessage, showTips = true, provider = '', extra = {}) {
   let modelInfo = {};
   if(tabName == 'quick-trans') {
     modelInfo[tabName] = {
@@ -61,7 +61,8 @@ function storeParams(tabName, param1, param2, saveMessage, showTips = true, prov
   } else {
     modelInfo[tabName] = {
       baseUrl: param1,
-      apiKey: param2
+      apiKey: param2,
+      ...extra
     };
   }
 
@@ -153,7 +154,16 @@ function openTab(evt, tabName) {
       const baseUrl = modelInfo.baseUrl;
       if(baseUrl) {
         const baseUrlInput = activeTabContent.querySelector('.baseurl-input');
-        baseUrlInput.value = baseUrl;
+        if (baseUrlInput) {
+          baseUrlInput.value = baseUrl;
+        }
+      }
+
+      if (modelInfo.hasOwnProperty('model')) {
+        const modelInput = activeTabContent.querySelector('.model-input');
+        if (modelInput) {
+          modelInput.value = modelInfo.model || '';
+        }
       }
       const enabled = modelInfo.enabled;
       if(enabled) {
@@ -261,7 +271,7 @@ function getModelBaseParamForCheck(baseUrl, tabId, apiKey) {
   });
 }
 
-function getToolsParamForCheck(baseUrl, tabId, apiKey) {
+function getToolsParamForCheck(baseUrl, tabId, apiKey, modelName = '') {
   let body = '';
   for (const { key, defaultBaseUrl, apiPath, defaultModel } of DEFAULT_TOOL_URLS) {
     if(tabId.includes(key)) {
@@ -277,6 +287,19 @@ function getToolsParamForCheck(baseUrl, tabId, apiKey) {
           n: 1,
           size: "1024x1024"
         });
+      } else if(tabId.includes(NANO_BANANA_KEY)) {
+        const resolvedModel = modelName || defaultModel;
+        body = JSON.stringify({
+          model: resolvedModel,
+          messages: [
+            {
+              role: "user",
+              content: "Create an image of a futuristic city"
+            }
+          ],
+          modalities: ["image", "text"],
+          stream: true
+        });
       }
 
       return {apiUrl, body};
@@ -291,7 +314,7 @@ function getToolsParamForCheck(baseUrl, tabId, apiKey) {
  * @param {string} tabId
  * @param {object} resultElement 
  */
-function checkAPIAvailable(baseUrl, apiKey, tabId, resultElement) {
+function checkAPIAvailable(baseUrl, apiKey, tabId, resultElement, modelName = '') {
   // Check if a check is already in progress for this element
   if (resultElement._isChecking) {
     console.log('Check already in progress for:', tabId);
@@ -316,7 +339,7 @@ function checkAPIAvailable(baseUrl, apiKey, tabId, resultElement) {
 
     // 为了复用该函数，这里做一些trick
     if (tabId.includes(TOOL_KEY)) {
-      ({ apiUrl, body } = getToolsParamForCheck(baseUrl, tabId, apiKey));
+      ({ apiUrl, body } = getToolsParamForCheck(baseUrl, tabId, apiKey, modelName));
     } else {
       // 处理Promise
       ({ apiUrl, body } = await getModelBaseParamForCheck(baseUrl, tabId, apiKey));
@@ -373,6 +396,9 @@ function checkAPIAvailable(baseUrl, apiKey, tabId, resultElement) {
         // Use status text if available, otherwise default message
         const errorText = response.statusText || `状态码：${response.status}`;
         throw new Error('API 请求失败: ' + errorText);
+      }
+      if (response.body && typeof response.body.cancel === 'function') {
+        response.body.cancel().catch(() => {});
       }
     } catch (error) {
        // Reset animation before showing error
@@ -587,7 +613,7 @@ function setupSaveButtons() {
       const tabContent = this.closest('.tab-content');
       const tabId = tabContent.id;
       const baseUrlInput = tabContent.querySelector('.baseurl-input');
-      const baseUrl = baseUrlInput.value.trim();
+      const baseUrl = baseUrlInput ? baseUrlInput.value.trim() : '';
       
       // 如果是 Ollama 提供商，只保存 base URL
       if (tabId === PROVIDER_OLLAMA) {
@@ -625,7 +651,11 @@ function setupSaveButtons() {
       const saveMessage = tabContent.querySelector('.save-message');
       
       // 保存KV & 显示保存成功
-      storeParams(tabId, baseUrl, apiKey, saveMessage);
+      const modelInput = tabContent.querySelector('.model-input');
+      const modelName = modelInput ? modelInput.value.trim() : '';
+      const extraConfig = modelInput ? { model: modelName } : {};
+
+      storeParams(tabId, baseUrl, apiKey, saveMessage, true, '', extraConfig);
     });
   });
   
@@ -680,9 +710,18 @@ function setupCheckApiButtons() {
 
       // api 代理地址
       var baseUrlInput = tabContent.querySelector('.baseurl-input');
-      var baseUrl = baseUrlInput.value || baseUrlInput.getAttribute("placeholder");
+      var baseUrl = '';
+      if (baseUrlInput) {
+        baseUrl = baseUrlInput.value || baseUrlInput.getAttribute("placeholder") || '';
+      }
 
-      checkAPIAvailable(baseUrl, apiKey, tabId, resultElement);
+      var modelInput = tabContent.querySelector('.model-input');
+      var modelName = '';
+      if (modelInput) {
+        modelName = modelInput.value || modelInput.getAttribute("placeholder") || '';
+      }
+
+      checkAPIAvailable(baseUrl, apiKey, tabId, resultElement, modelName);
     });
   });
 }
@@ -1543,6 +1582,11 @@ function loadSettings() {
         const baseUrlInput = activeTabContent.querySelector('.baseurl-input');
         if (baseUrlInput) baseUrlInput.value = baseUrl;
       }
+
+      if (modelInfo.hasOwnProperty('model') && activeTabContent) {
+        const modelInput = activeTabContent.querySelector('.model-input');
+        if (modelInput) modelInput.value = modelInfo.model || '';
+      }
       
       const enabled = modelInfo.enabled;
       if(enabled !== undefined) {
@@ -1906,4 +1950,3 @@ function updateModelList(tabId, modelListElement, customModels) {
     }, 2000);
   }
 }
-

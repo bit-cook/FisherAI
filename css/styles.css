@@ -580,6 +580,22 @@
     color: #60a5fa;
 }
 
+.tool-card-nano-banana .tool-card__status.is-success {
+    color: #facc15;
+}
+
+.ai-image-result {
+    margin-top: 16px;
+    padding: 18px;
+    border-radius: 16px;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+}
+
+.ai-image-result .tool-card__section-title {
+    margin-top: 0;
+}
+
 .tool-card__actions .tool-card__button {
     flex: 1 1 auto;
     text-align: center;

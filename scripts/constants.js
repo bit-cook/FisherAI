@@ -475,6 +475,10 @@ const IMAGE_GEN_PROMTP = `
 ## dalle
 // Whenever a description of an image is given, create a prompt that dalle can use to generate the image.`;
 
+const NANO_BANANA_PROMPT = `
+## nano-banana
+// When the user needs an image, call nano-banana with the prompt they provided. nano-banana returns image URLs over a streaming response.`;
+
 
 // 对话时取的最大历史对话长度
 const MAX_DIALOG_LEN = 3 * 2;
@@ -506,9 +510,15 @@ const DALLE = "dalle";
 const DALLE_KEY = TOOL_KEY + DALLE;
 const DALLE_DEFAULT_MODEL = "dall-e-3";
 
+const NANO_BANANA = "nano-banana";
+const NANO_BANANA_KEY = TOOL_KEY + NANO_BANANA;
+const NANO_BANANA_DEFAULT_URL = "https://openrouter.ai/api/v1/chat/completions";
+const NANO_BANANA_DEFAULT_MODEL = "google/gemini-2.5-flash-image-preview";
+
 const DEFAULT_TOOL_URLS = [
-  { key: SERPAPI_KEY, apiPath: SERPAPI_PATH_URL, apiPath: SERPAPI_PATH_URL},
-  { key: DALLE_KEY, baseUrl: OPENAI_BASE_URL, apiPath: OPENAI_DALLE_API_PATH, defaultModel: DALLE_DEFAULT_MODEL },
+  { key: SERPAPI_KEY, defaultBaseUrl: SERPAPI_BASE_URL, apiPath: SERPAPI_PATH_URL },
+  { key: DALLE_KEY, defaultBaseUrl: OPENAI_BASE_URL, apiPath: OPENAI_DALLE_API_PATH, defaultModel: DALLE_DEFAULT_MODEL },
+  { key: NANO_BANANA_KEY, defaultBaseUrl: NANO_BANANA_DEFAULT_URL, apiPath: '', defaultModel: NANO_BANANA_DEFAULT_MODEL },
 ];
 
 // dalle 默认的配置，由于gemini不支持在schema中设置default，这里拿出来单独定义
@@ -557,6 +567,24 @@ const FUNCTION_DALLE = {
               "natural"
           ],
           "type": "string"
+        }
+      },
+      "required": ["prompt"]
+    }
+  }
+}
+
+const FUNCTION_NANO_BANANA = {
+  "type": "function",
+  "function": {
+    "name": "nano_banana",
+    "description": "nano-banana generates images via OpenRouter nano-banana endpoint.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "The image description users expect. Pass the exact user prompt when requesting nano-banana."
         }
       },
       "required": ["prompt"]

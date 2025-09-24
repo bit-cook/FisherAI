@@ -494,12 +494,15 @@ function loadModelParams() {
 }
 
 function loadToolsSelectedStatus() {
-  chrome.storage.sync.get([SERPAPI, DALLE], (result) => {
+  chrome.storage.sync.get([SERPAPI, DALLE, NANO_BANANA], (result) => {
     if (result.serpapi !== undefined) {
         document.getElementById(SERPAPI).checked = result.serpapi;
     }
     if (result.dalle !== undefined) {
         document.getElementById(DALLE).checked = result.dalle;
+    }
+    if (result[NANO_BANANA] !== undefined) {
+        document.getElementById(NANO_BANANA).checked = result[NANO_BANANA];
     }
   });
 }

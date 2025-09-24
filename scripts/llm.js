@@ -282,7 +282,9 @@ async function parseFunctionCalling(result, baseUrl, apiKey, model, type, provid
           .replace(/^functions\./, '');
 
         const isSearchTool = normalizedToolName.includes('serp') || normalizedToolName.includes('search');
-        const isImageTool = normalizedToolName.includes('dalle') || normalizedToolName.includes('image');
+        const isNanoBananaTool = normalizedToolName.includes('nano_banana') || normalizedToolName.includes('nano-banana');
+        const isDalleTool = normalizedToolName.includes('dalle');
+        const isGenericImageTool = !isNanoBananaTool && (isDalleTool || normalizedToolName.includes('image'));
 
         // Parse the JSON string into an object
         if(typeof toolArgs == 'string') {
@@ -339,7 +341,50 @@ async function parseFunctionCalling(result, baseUrl, apiKey, model, type, provid
             hiddenLoadding();
           }
 
-        } else if (isImageTool) {
+        } else if (isNanoBananaTool) {
+          const promptText = toolArgs['prompt'] || '';
+          const imageContainer = document.createElement('div');
+          imageContainer.className = 'ai-image-result';
+          lastDiv.appendChild(imageContainer);
+
+          const statusEl = document.createElement('div');
+          statusEl.className = 'tool-card__status is-running';
+          statusEl.textContent = getToolLocaleText('tool_nano_banana_running');
+          imageContainer.appendChild(statusEl);
+
+          try {
+            const nanoBananaResult = await callNanoBanana(promptText);
+            imageContainer.innerHTML = '';
+            renderNanoBananaImages(imageContainer, nanoBananaResult, promptText);
+
+            const assetSummaries = nanoBananaResult.assets.map(asset => ({
+              id: asset.id,
+              role: asset.role,
+              w: asset.width,
+              h: asset.height
+            }));
+
+            updateToolCallChatHistory(tool, JSON.stringify({
+              status: 'success',
+              prompt: promptText,
+              job_id: nanoBananaResult.jobId,
+              assets: assetSummaries,
+              asset_count: assetSummaries.length
+            }));
+          } catch (error) {
+            console.error('nano-banana tool error:', error);
+            imageContainer.innerHTML = '';
+            renderToolCardError(imageContainer, error.message || String(error));
+
+            updateToolCallChatHistory(tool, JSON.stringify({
+              status: 'error',
+              prompt: promptText,
+              message: error.message || String(error)
+            }));
+          } finally {
+            hiddenLoadding();
+          }
+        } else if (isGenericImageTool) {
           const toolCard = createToolCallCard({
             type: 'dalle',
             titleText: getToolLocaleText('tool_dalle_title'),
@@ -455,6 +500,7 @@ async function chatWithOpenAIFormat(baseUrl, apiKey, modelName, type, provider) 
     // 获取工具选择情况
     const serpapi_checked = await getValueFromChromeStorage(SERPAPI);
     const dalle_checked = await getValueFromChromeStorage(DALLE);
+    const nanoBananaChecked = await getValueFromChromeStorage(NANO_BANANA);
     let tools_list_prompt = TOOL_PROMPT_PREFIX;
     if(serpapi_checked != null && serpapi_checked) {
       tools_list_prompt += WEB_SEARCH_PROMTP;
@@ -463,6 +509,10 @@ async function chatWithOpenAIFormat(baseUrl, apiKey, modelName, type, provider) 
     if(dalle_checked != null && dalle_checked) {
       tools_list_prompt += IMAGE_GEN_PROMTP;
       body.tools.push(FUNCTION_DALLE);
+    }
+    if(nanoBananaChecked != null && nanoBananaChecked) {
+      tools_list_prompt += NANO_BANANA_PROMPT;
+      body.tools.push(FUNCTION_NANO_BANANA);
     }
     // 如果tools数组为空，则删除tools属性
     if (body.tools.length === 0) {
@@ -515,6 +565,7 @@ async function chatWithGemini(baseUrl, type, provider) {
   // 获取工具选择情况
   const serpapi_checked = await getValueFromChromeStorage(SERPAPI);
   const dalle_checked = await getValueFromChromeStorage(DALLE);
+  const nanoBananaChecked = await getValueFromChromeStorage(NANO_BANANA);
   let tools_list_prompt = TOOL_PROMPT_PREFIX;
   if(serpapi_checked != null && serpapi_checked) {
     tools_list_prompt += WEB_SEARCH_PROMTP;
@@ -523,6 +574,10 @@ async function chatWithGemini(baseUrl, type, provider) {
   if(dalle_checked != null && dalle_checked) {
     tools_list_prompt += IMAGE_GEN_PROMTP;
     body.tools[0].functionDeclarations.push(FUNCTION_DALLE.function);
+  }
+  if(nanoBananaChecked != null && nanoBananaChecked) {
+    tools_list_prompt += NANO_BANANA_PROMPT;
+    body.tools[0].functionDeclarations.push(FUNCTION_NANO_BANANA.function);
   }
   // 如果tools数组为空，则删除tools属性
   if (body.tools[0].functionDeclarations.length === 0) {
@@ -743,14 +798,15 @@ function createDialogueEntry(role, partsKey, text, images, provider) {
  * @param {string} text 
  */
 function updateChatHistory(text) {
+  const sanitizedText = stripImageArtifacts(text);
   dialogueHistory.push({
     "role": "assistant",
-    "content": text
+    "content": sanitizedText
   });
   geminiDialogueHistory.push({
     "role": "model",
     "parts": [{
-      "text": text
+      "text": sanitizedText
     }]
   });
 }
@@ -803,6 +859,29 @@ function updateToolCallChatHistory(tool, content) {
       }
     ]
   });
+}
+
+function stripImageArtifacts(text) {
+  if (!text) {
+    return text;
+  }
+
+  const hadImageTokens = /!\[[^\]]*?\]\([^)]*?\)|<img[^>]*>/i.test(text);
+  let sanitized = text.replace(/!\[[^\]]*?\]\([^)]*?\)/g, '');
+  sanitized = sanitized.replace(/<img[^>]*>/gi, '');
+  sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
+  sanitized = sanitized.replace(/^\s+/, '');
+  const runningText = typeof getToolLocaleText === 'function' ? getToolLocaleText('tool_nano_banana_running') : '';
+  if (runningText && sanitized.trim() === runningText.trim()) {
+    const fallback = typeof getToolLocaleText === 'function' ? getToolLocaleText('tool_image_gallery_fallback') : '';
+    if (fallback) {
+      sanitized = fallback;
+    }
+  }
+  if (hadImageTokens && sanitized.trim().length === 0 && typeof getToolLocaleText === 'function') {
+    sanitized = getToolLocaleText('tool_image_gallery_fallback');
+  }
+  return sanitized;
 }
 
 
@@ -1222,7 +1301,8 @@ function updateChatContent(completeText, type) {
         regularContentDiv.className = 'regular-content';
         lastDiv.appendChild(regularContentDiv);
       }
-      regularContentDiv.innerHTML = marked.parse(completeText);
+      const sanitizedText = stripImageArtifacts(completeText);
+      regularContentDiv.innerHTML = marked.parse(sanitizedText);
       
       // 渲染数学公式
       renderMathInElement(regularContentDiv, {
@@ -1234,7 +1314,8 @@ function updateChatContent(completeText, type) {
       });
     } else {
       // 如果没有思考区块，直接更新整个内容
-      lastDiv.innerHTML = marked.parse(completeText);
+      const sanitizedText = stripImageArtifacts(completeText);
+      lastDiv.innerHTML = marked.parse(sanitizedText);
       
       // 渲染数学公式
       renderMathInElement(lastDiv, {
@@ -1275,7 +1356,8 @@ function updateChatContent(completeText, type) {
         regularContentDiv.className = 'regular-content';
         translationPopup.appendChild(regularContentDiv);
       }
-      regularContentDiv.innerHTML = marked.parse(completeText);
+      const sanitizedText = stripImageArtifacts(completeText);
+      regularContentDiv.innerHTML = marked.parse(sanitizedText);
       
       // 渲染数学公式
       renderMathInElement(regularContentDiv, {
@@ -1287,20 +1369,22 @@ function updateChatContent(completeText, type) {
       });
       
       // 添加复制按钮到regularContentDiv
-      addCopyButtonToTranslation(regularContentDiv, completeText);
+      addCopyButtonToTranslation(regularContentDiv, sanitizedText);
     } else {
       // 如果没有思考区块，直接更新内容容器
       if (contentContainer) {
-        contentContainer.innerHTML = marked.parse(completeText);
+        const sanitizedText = stripImageArtifacts(completeText);
+        contentContainer.innerHTML = marked.parse(sanitizedText);
         
         // 添加复制按钮到contentContainer
-        addCopyButtonToTranslation(contentContainer, completeText);
+        addCopyButtonToTranslation(contentContainer, sanitizedText);
       } else {
         // 如果找不到容器，则更新整个弹窗（应该不会走到这个分支）
-        translationPopup.innerHTML = marked.parse(completeText);
+        const sanitizedText = stripImageArtifacts(completeText);
+        translationPopup.innerHTML = marked.parse(sanitizedText);
         
         // 添加复制按钮到translationPopup
-        addCopyButtonToTranslation(translationPopup, completeText);
+        addCopyButtonToTranslation(translationPopup, sanitizedText);
       }
       
       // 渲染数学公式
@@ -1517,6 +1601,190 @@ async function callDALLE(prompt, quality, size, style) {
 
   const data = await response.json();
   return data;
+}
+
+async function callNanoBanana(prompt) {
+  const trimmedPrompt = (prompt || '').trim();
+  if (!trimmedPrompt) {
+    throw new Error(' nano-banana 工具的提示词为空，请检查！');
+  }
+
+  const keyStorage = await getValueFromChromeStorage(NANO_BANANA_KEY);
+  const baseUrl = (keyStorage?.baseUrl || '').trim() || NANO_BANANA_DEFAULT_URL;
+  const modelName = (keyStorage?.model || '').trim() || NANO_BANANA_DEFAULT_MODEL;
+
+  if (!baseUrl) {
+    throw new Error(' nano-banana 工具的 API 代理地址为空，请检查！');
+  }
+
+  if (!keyStorage || !keyStorage.apiKey) {
+    throw new Error(' nano-banana 工具的 API Key 未配置，请检查！');
+  }
+
+  const body = {
+    model: modelName,
+    messages: [
+      {
+        role: 'user',
+        content: trimmedPrompt
+      }
+    ],
+    modalities: ['image', 'text'],
+    stream: true
+  };
+
+  const additionalHeaders = {
+    'Authorization': 'Bearer ' + keyStorage.apiKey,
+    'Accept': 'text/event-stream'
+  };
+
+  const params = createRequestParams(additionalHeaders, body);
+  let response;
+  try {
+    response = await fetch(baseUrl, params);
+  } finally {
+    clearTimeout(params.timeoutId);
+  }
+
+  if (!response.ok) {
+    let errorMessage = '';
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('json')) {
+      try {
+        const errorJson = await response.json();
+        console.error('nano-banana error response JSON:', errorJson);
+        errorMessage = extractErrorMessageFromResponse(errorJson);
+      } catch (parseError) {
+        console.error('Failed to parse nano-banana error response:', parseError);
+      }
+    } else {
+      try {
+        errorMessage = (await response.text()).trim();
+      } catch (textError) {
+        console.error('Failed to read nano-banana error response text:', textError);
+      }
+    }
+    throw new Error(buildResponseErrorMessage(response, errorMessage, 'nano-banana 请求失败'));
+  }
+
+  if (!response.body) {
+    // 非流式响应兜底处理
+    const fallbackText = await response.text();
+    try {
+      const parsed = JSON.parse(fallbackText);
+      const images = extractNanoBananaImages(parsed);
+      return buildNanoBananaResult(images);
+    } catch (error) {
+      throw new Error(' nano-banana 返回结果为空或格式无法解析');
+    }
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  const collected = [];
+  const seen = new Set();
+
+  const processBuffer = () => {
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line.startsWith('data: ')) {
+        continue;
+      }
+      const payload = line.slice(6).trim();
+      if (!payload || payload === '[DONE]') {
+        continue;
+      }
+      try {
+        const chunk = JSON.parse(payload);
+        const images = extractNanoBananaImages(chunk);
+        for (const item of images) {
+          const key = item.url;
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            collected.push(item);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse nano-banana stream chunk:', error, payload);
+      }
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    processBuffer();
+  }
+
+  buffer += decoder.decode();
+  processBuffer();
+
+  if (collected.length === 0) {
+    throw new Error(' nano-banana 未返回任何图像地址');
+  }
+
+  return buildNanoBananaResult(collected);
+}
+
+function extractNanoBananaImages(payload) {
+  const results = [];
+  if (!payload || typeof payload !== 'object') {
+    return results;
+  }
+
+  const pushImage = (imageData) => {
+    if (!imageData) {
+      return;
+    }
+    const source = imageData.image_url || imageData;
+    const imageUrl = source?.url;
+    if (!imageUrl) {
+      return;
+    }
+    results.push({
+      url: imageUrl,
+      width: source?.width ?? null,
+      height: source?.height ?? null
+    });
+  };
+
+  const choices = Array.isArray(payload.choices) ? payload.choices : [];
+  choices.forEach(choice => {
+    const deltaImages = choice?.delta?.images;
+    if (Array.isArray(deltaImages)) {
+      deltaImages.forEach(imageEntry => pushImage(imageEntry));
+    }
+
+    const messageContent = choice?.message?.content;
+    if (Array.isArray(messageContent)) {
+      messageContent.forEach(part => pushImage(part));
+    }
+  });
+
+  return results;
+}
+
+function buildNanoBananaResult(imageItems) {
+  const timestamp = Date.now();
+  const jobId = `${NANO_BANANA}-job-${timestamp}`;
+  const assets = imageItems.map((item, index) => ({
+    id: `${jobId}-asset-${index + 1}`,
+    role: 'image',
+    url: item.url,
+    width: item.width ?? null,
+    height: item.height ?? null
+  }));
+
+  return {
+    jobId,
+    assets
+  };
 }
 
 /**
