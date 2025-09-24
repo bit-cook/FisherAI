@@ -317,6 +317,19 @@ function toggleShortcutMenu(inputField, shortcutMenu) {
   }
 }
 
+function updatePreviewAreaVisibility() {
+  const previewArea = document.querySelector('.image-preview-area');
+  if (!previewArea) {
+    return;
+  }
+  const hasItems = previewArea.querySelector('.img-container') !== null;
+  if (hasItems) {
+    previewArea.classList.add('is-visible');
+  } else {
+    previewArea.classList.remove('is-visible');
+  }
+}
+
 function handleUploadFiles(event) {
   var files = event.target.files;
   var previewArea = document.querySelector('.image-preview-area');
@@ -343,6 +356,8 @@ function handleUploadFiles(event) {
     deleteBtn.removeAttribute('id');
     deleteBtn.addEventListener('click', function() {
         previewArea.removeChild(imgContainer);
+        updatePreviewAreaVisibility();
+        updateSubmitButton();
     });
 
     // 预览
@@ -364,6 +379,7 @@ function handleUploadFiles(event) {
     imgContainer.appendChild(img);
     imgContainer.appendChild(deleteBtn);
     previewArea.appendChild(imgContainer);
+    updatePreviewAreaVisibility();
   });
 
   // 清空文件输入
@@ -675,6 +691,7 @@ function initResultPage() {
       // 清空上传图片预览界面
       const previewArea = document.querySelector('.image-preview-area');
       previewArea.innerHTML = '';
+      updatePreviewAreaVisibility();
       // 清空历史记录
       initChatHistory();
       // 展示推荐内容
@@ -1082,6 +1099,7 @@ function initResultPage() {
             // 清空上传图片预览界面
             const previewArea = document.querySelector('.image-preview-area');
             previewArea.innerHTML = '';
+            updatePreviewAreaVisibility();
 
             // 清除选中内容标签
             hideSelectedContent();
