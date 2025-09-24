@@ -3,6 +3,8 @@
   "model_select": "Select Model:",
   "save": "Save",
   "success": "Saved successfully!",
+  "brand_name": "FisherAI",
+  "slogan": "Your Best Summary Copilot",
   "auto_save_success": "Settings auto-saved!",
   "selected_content": "Selected Content",
   "page_content": "Page Content",

@@ -3,6 +3,8 @@
   "model_select": "选择模型:",
   "save": "保存",
   "success": "保存成功！",
+  "brand_name": "FisherAI",
+  "slogan": "最佳摘要副驾",
   "auto_save_success": "设置已自动保存！",
   "selected_content": "选中的内容",
   "page_content": "页面内容",

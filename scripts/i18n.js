@@ -57,7 +57,8 @@ const i18n = {
         
         
         // 侧边栏
-        'slogan': 'FisherAI - Your Best Summary Copilot',
+        'brand_name': 'FisherAI',
+        'slogan': 'Your Best Summary Copilot',
         'feature_recommend': '功能推荐：',
         'smart_summary': '智能摘要',
         'summary_desc': '支持多种格式，包括网页、PDF 文件、Bilibili 和 YouTube 视频。',
@@ -248,7 +249,8 @@ const i18n = {
         'feature_download_subtitle': 'download video subtitle ( Supports Youtube & Bilibili)',
         
         // Sidebar
-        'slogan': 'FisherAI - Your Best Summary Copilot',
+        'brand_name': 'FisherAI',
+        'slogan': 'Your Best Summary Copilot',
         'feature_recommend': 'Featured Functions:',
         'smart_summary': 'Smart Summary',
         'summary_desc': 'Supports multiple formats, including web pages, PDF files, Bilibili and YouTube videos.',
@@ -438,7 +440,8 @@ const i18n = {
         "feature_download_subtitle": "ビデオ字幕のダウンロード（Youtube、Bilibili）",
 
         // 侧边栏
-        "slogan": "FisherAI - 最高の要約コパイロット",
+        'brand_name': 'FisherAI',
+        "slogan": "最高の要約コパイロット",
         "feature_recommend": "おすすめ機能：",
         "smart_summary": "スマート要約",
         "summary_desc": "ウェブページ、PDFファイル、Bilibili、YouTube動画など、様々なフォーマットに対応しています。",
@@ -592,7 +595,8 @@ const i18n = {
         "feature_download_subtitle": "비디오 자막 다운로드 (Youtube, Bilibili)",
 
         // 侧边栏
-        "slogan": "FisherAI - 최고의 요약 코파일럿",
+        "brand_name": "FisherAI",
+        "slogan": "최고의 요약 코파일럿",
         "feature_recommend": "추천 기능:",
         "smart_summary": "스마트 요약",
         "summary_desc": "웹 페이지, PDF 파일, Bilibili 및 YouTube 비디오를 포함한 다양한 형식을 지원합니다.",
@@ -746,7 +750,8 @@ const i18n = {
         "feature_download_subtitle": "Téléchargement des sous-titres vidéo (Youtube, Bilibili)",
 
         // 侧边栏
-        "slogan": "FisherAI - Votre meilleur copilote de résumé",
+        "brand_name": "FisherAI",
+        "slogan": "Votre meilleur copilote de résumé",
         "feature_recommend": "Fonctionnalités recommandées :",
         "smart_summary": "Résumé intelligent",
         "summary_desc": "Prend en charge différents formats, notamment les pages web, les fichiers PDF, les vidéos Bilibili et YouTube.",
@@ -900,7 +905,8 @@ const i18n = {
         "feature_download_subtitle": "Video-Untertitel herunterladen (Youtube, Bilibili)",
 
         // 侧边栏
-        "slogan": "FisherAI - Ihr bester Zusammenfassungs-Copilot",
+        "brand_name": "FisherAI",
+        "slogan": "Ihr bester Zusammenfassungs-Copilot",
         "feature_recommend": "Empfohlene Funktionen:",
         "smart_summary": "Intelligente Zusammenfassung",
         "summary_desc": "Unterstützt verschiedene Formate, darunter Webseiten, PDF-Dateien, Bilibili- und YouTube-Videos.",
@@ -1054,7 +1060,8 @@ const i18n = {
         "feature_download_subtitle": "Скачивание субтитров (Youtube, Bilibili)",
 
         // 侧边栏
-        "slogan": "FisherAI - Ваш лучший помощник для создания сводок",
+        "brand_name": "FisherAI",
+        "slogan": "Ваш лучший помощник для создания сводок",
         "feature_recommend": "Рекомендуемые функции:",
         "smart_summary": "Умная сводка",
         "summary_desc": "Поддерживает различные форматы, включая веб-страницы, PDF-файлы, видео Bilibili и YouTube.",
