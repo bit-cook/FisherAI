@@ -25,6 +25,13 @@ function applyAppearanceMode() {
 }
 
 /**
+ * 打开设置页面
+ */
+function openSettingsPage() {
+  chrome.runtime.sendMessage({ action: "openSettings" });
+}
+
+/**
  * 更新动态文本（那些不通过data-i18n属性设置的文本）
  */
 async function updateDynamicTexts(lang) {
@@ -51,17 +58,6 @@ async function updateDynamicTexts(lang) {
   SHORTCUT_POLISH = messages.shortcut_polish;
   SHORTCUT_CODE_EXPLAIN = messages.shortcut_code_explain;
   SHORTCUT_IMAGE2TEXT = messages.shortcut_image2text;
-  
-  // 为API KEY设置按钮添加点击事件（如果存在）
-  document.addEventListener('DOMContentLoaded', function() {
-    const setupKeyBtn = document.getElementById('goto-settings-btn');
-    if (setupKeyBtn) {
-      setupKeyBtn.addEventListener('click', function() {
-        console.log('Settings button clicked');
-        chrome.runtime.sendMessage({ action: "openSettings" });
-      });
-    }
-  });
   
   // 更新模型选择下拉框的 optgroup 标签
   const modelSelect = document.getElementById('model-selection');
@@ -104,17 +100,6 @@ async function verifyApiKeyConfigured(provider) {
     // 初始化对话内容 
     var contentDiv = document.querySelector('.chat-content');
     contentDiv.innerHTML = DEFAULT_TIPS;
-    
-    // 立即绑定设置按钮事件
-    setTimeout(() => {
-      const setupKeyBtn = document.getElementById('goto-settings-btn');
-      if (setupKeyBtn) {
-        setupKeyBtn.addEventListener('click', function() {
-          console.log('Settings button clicked from verify function');
-          chrome.runtime.sendMessage({ action: "openSettings" });
-        });
-      }
-    }, 0);
     
     return false;
   }
@@ -551,7 +536,7 @@ function initResultPage() {
   document.addEventListener('click', function(event) {
     if (event.target && event.target.id === 'goto-settings-btn') {
       console.log('Settings button clicked through delegation');
-      chrome.runtime.sendMessage({ action: "openSettings" });
+      openSettingsPage();
     }
   });
 
@@ -826,7 +811,7 @@ function initResultPage() {
     if (settingsButton) {
       settingsButton.addEventListener('click', function() {
         // 发送消息到background script打开新标签页
-        chrome.runtime.sendMessage({ action: "openSettings" });
+        openSettingsPage();
       });
     }
 
@@ -987,7 +972,8 @@ function initResultPage() {
             // 隐藏初始推荐内容
             hideRecommandContent();
 
-            let inputText = userInput.value;
+            const originalUserText = userInput.value;
+            let inputText = originalUserText;
             
             // 获取当前上下文内容
             const contextContent = getCurrentContextContent();
@@ -1045,7 +1031,7 @@ function initResultPage() {
               });
             }
             // 只显示用户的原始输入，不包含上下文内容
-            userMessage += userInput.value;
+            userMessage += originalUserText;
             userQuestionDiv.innerHTML = userMessage;
 
             // Add edit button
@@ -1058,7 +1044,7 @@ function initResultPage() {
               </svg>
             `;
             // 传递原始输入用于编辑
-            editButton.onclick = () => editUserMessage(userQuestionDiv, userInput.value);
+            editButton.onclick = () => editUserMessage(userQuestionDiv, originalUserText);
             userQuestionDiv.appendChild(editButton);
 
             const contentDiv = document.querySelector('.chat-content');
@@ -1597,4 +1583,3 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
     }
   }
 });
-

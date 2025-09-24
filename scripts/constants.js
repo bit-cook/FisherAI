@@ -29,7 +29,7 @@ SHORTCUT_IMAGE2TEXT = "图像转文本：";
 // 各个大模型 api
 const OPENAI_BASE_URL = "https://api.openai.com";
 const OPENAI_CHAT_API_PATH = "/v1/chat/completions";
-const OPENAI_DALLE_API_PATH = "/v1/images/generations";
+const OPENAI_DALLE_API_PATH = "";
 
 const GOOGLE_BASE_URL = "https://generativelanguage.googleapis.com";
 const GOOGLE_CHAT_API_PATH = "/v1beta/models/{MODEL_NAME}:streamGenerateContent?alt=sse&key={API_KEY}";

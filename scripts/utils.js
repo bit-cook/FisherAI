@@ -344,6 +344,476 @@ function createAIMessageDiv() {
     contentDiv.appendChild(aiContentDiv);
 }
 
+// 当前 UI 语言，默认中文
+let currentUILanguage = 'zh-CN';
+
+// 工具调用的本地化文案
+const TOOL_LOCALE_MAP = {
+    'zh': {
+        tool_common_preparing: '等待调用…',
+        tool_common_running: '执行中…',
+        tool_common_success: '完成',
+        tool_common_failed: '调用失败',
+        tool_common_error_prefix: '错误：',
+        tool_serpapi_title: '联网搜索',
+        tool_serpapi_running: '正在联网搜索…',
+        tool_serpapi_success: '搜索完成',
+        tool_serpapi_no_results: '未找到可靠的公开数据。',
+        tool_serpapi_sources: '引用来源',
+        tool_serpapi_answer: '直接答案',
+        tool_serpapi_open: '打开链接',
+        tool_serpapi_read_label: '阅读',
+        tool_serpapi_and_more: '等 {count} 个来源',
+        tool_serpapi_search_label: '搜索的网页',
+        tool_serpapi_more: '更多',
+        tool_serpapi_show_less: '收起',
+        tool_dalle_title: '图像生成',
+        tool_dalle_running: '正在生成图像…',
+        tool_dalle_success: '生成完成',
+        tool_dalle_error: '图像生成失败',
+        tool_dalle_prompt: '提示词',
+        tool_dalle_view: '查看原图',
+        tool_dalle_download: '下载图片'
+    },
+    'en': {
+        tool_common_preparing: 'Queued…',
+        tool_common_running: 'In progress…',
+        tool_common_success: 'Completed',
+        tool_common_failed: 'Failed',
+        tool_common_error_prefix: 'Error: ',
+        tool_serpapi_title: 'Web Search',
+        tool_serpapi_running: 'Searching the web…',
+        tool_serpapi_success: 'Search ready',
+        tool_serpapi_no_results: 'No reliable public sources found.',
+        tool_serpapi_sources: 'Sources',
+        tool_serpapi_answer: 'Direct answer',
+        tool_serpapi_open: 'Open link',
+        tool_serpapi_read_label: 'Read',
+        tool_serpapi_and_more: 'and {count} more',
+        tool_serpapi_search_label: 'Searched the web',
+        tool_serpapi_more: 'more',
+        tool_serpapi_show_less: 'Show less',
+        tool_dalle_title: 'Image Generation',
+        tool_dalle_running: 'Generating images…',
+        tool_dalle_success: 'Images ready',
+        tool_dalle_error: 'Image generation failed',
+        tool_dalle_prompt: 'Prompt',
+        tool_dalle_view: 'Open original',
+        tool_dalle_download: 'Download'
+    }
+};
+
+function setUILanguage(lang) {
+    if (typeof lang === 'string' && lang.trim().length > 0) {
+        currentUILanguage = lang;
+    }
+}
+
+function resolveUILanguageBucket() {
+    if (!currentUILanguage) {
+        return 'zh';
+    }
+    const lowered = currentUILanguage.toLowerCase();
+    if (lowered.startsWith('zh')) {
+        return 'zh';
+    }
+    return 'en';
+}
+
+function getToolLocaleText(key) {
+    const bucket = resolveUILanguageBucket();
+    const locale = TOOL_LOCALE_MAP[bucket] || TOOL_LOCALE_MAP.en;
+    if (locale && locale[key]) {
+        return locale[key];
+    }
+    if (bucket !== 'en' && TOOL_LOCALE_MAP.en[key]) {
+        return TOOL_LOCALE_MAP.en[key];
+    }
+    return key;
+}
+
+function createToolCallCard(options) {
+    const { type, titleText, statusText, collapsible = false, startCollapsed = false } = options;
+    const card = document.createElement('div');
+    card.className = `tool-card tool-card-${type}`;
+    if (collapsible) {
+        card.dataset.collapsible = 'true';
+    }
+
+    const header = document.createElement('div');
+    header.className = 'tool-card__header';
+
+    const title = document.createElement('span');
+    title.className = 'tool-card__title';
+    title.textContent = titleText;
+
+    const headerMeta = document.createElement('div');
+    headerMeta.className = 'tool-card__meta';
+
+    const status = document.createElement('span');
+    status.className = 'tool-card__status';
+    status.textContent = statusText;
+    headerMeta.appendChild(status);
+
+    if (collapsible) {
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'tool-card__toggle';
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        `;
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            toggleToolCardCollapsed(card);
+        });
+        headerMeta.appendChild(toggle);
+    }
+
+    header.appendChild(title);
+    header.appendChild(headerMeta);
+
+    const body = document.createElement('div');
+    body.className = 'tool-card__body';
+
+    card.appendChild(header);
+    card.appendChild(body);
+
+    if (collapsible && startCollapsed) {
+        setToolCardCollapsed(card, true);
+    }
+
+    return { card, statusEl: status, bodyEl: body };
+}
+
+function isToolCardCollapsed(card) {
+    if (!card) {
+        return false;
+    }
+    return card.classList.contains('is-collapsed');
+}
+
+function setToolCardCollapsed(card, collapsed) {
+    if (!card) {
+        return;
+    }
+    card.classList.toggle('is-collapsed', collapsed);
+    card.dataset.collapsed = collapsed ? 'true' : 'false';
+    const toggle = card.querySelector('.tool-card__toggle');
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+}
+
+function toggleToolCardCollapsed(card) {
+    if (!card) {
+        return;
+    }
+    const nextState = !isToolCardCollapsed(card);
+    setToolCardCollapsed(card, nextState);
+}
+
+function updateToolCardStatus(statusEl, text, stateClass) {
+    if (!statusEl) {
+        return;
+    }
+    statusEl.textContent = text;
+    statusEl.classList.remove('is-running', 'is-success', 'is-error');
+    if (stateClass) {
+        statusEl.classList.add(stateClass);
+    }
+}
+
+function renderToolCardError(bodyEl, message) {
+    if (!bodyEl) {
+        return;
+    }
+    bodyEl.innerHTML = '';
+    const errorBlock = document.createElement('div');
+    errorBlock.className = 'tool-card__error';
+    errorBlock.textContent = `${getToolLocaleText('tool_common_error_prefix')}${message}`;
+    bodyEl.appendChild(errorBlock);
+}
+
+function sanitizeAssistantVisibleText(text, options = {}) {
+    if (!text || typeof text !== 'string') {
+        return text || '';
+    }
+
+    const { trimLeading = true } = options;
+
+    let sanitized = text;
+
+    sanitized = sanitized.replace(/<\|tool_calls_section_begin\|>[\s\S]*?<\|tool_calls_section_end\|>/g, '');
+
+    sanitized = sanitized.replace(/<\|tool_call_(?:argument|result)_begin\|>[\s\S]*?<\|tool_call_(?:argument|result)_end\|>/g, '');
+
+    sanitized = sanitized.replace(/<\|(tool_call_begin|tool_call_end|assistant|observation|reflection)\|>/g, '');
+
+    sanitized = sanitized.replace(/<\|\/?(?:response|assistant|message)_annotations?\|>/g, '');
+
+    sanitized = sanitized.replace(/<\|\/?(?:thought|thinking)\|>/g, '');
+
+    if (trimLeading) {
+        sanitized = sanitized.replace(/^\s+/, '');
+    }
+
+    return sanitized;
+}
+
+function extractHostname(url) {
+    try {
+        const parsed = new URL(url);
+        return parsed.hostname.replace(/^www\./, '');
+    } catch (error) {
+        return '';
+    }
+}
+
+function renderSerpApiResults(bodyEl, result, query) {
+    if (!bodyEl) {
+        return;
+    }
+    bodyEl.innerHTML = '';
+
+    const answerBox = result?.answerBox || null;
+    const organicResults = Array.isArray(result?.organicResults) ? result.organicResults : [];
+    const hasResults = organicResults.length > 0;
+
+    if (!hasResults && !answerBox) {
+        const emptyState = document.createElement('div');
+        emptyState.className = 'tool-card__empty';
+        emptyState.textContent = getToolLocaleText('tool_serpapi_no_results');
+        bodyEl.appendChild(emptyState);
+        return;
+    }
+
+    const hostCandidates = organicResults
+        .map(item => item.source || extractHostname(item.link))
+        .filter(Boolean);
+    const uniqueHosts = Array.from(new Set(hostCandidates));
+
+    if (uniqueHosts.length > 0) {
+        const summaryRow = document.createElement('div');
+        summaryRow.className = 'serp-card__summary';
+
+        const summaryText = document.createElement('span');
+        summaryText.className = 'serp-card__summary-text';
+        const readPrefix = getToolLocaleText('tool_serpapi_read_label');
+        const andMoreTemplate = getToolLocaleText('tool_serpapi_and_more');
+        const primaryHosts = uniqueHosts.slice(0, 2);
+        let summarySentence = `${readPrefix} ${primaryHosts.join(', ')}`;
+        const remaining = uniqueHosts.length - primaryHosts.length;
+        if (remaining > 0) {
+            summarySentence += ` ${andMoreTemplate.replace('{count}', remaining)}`;
+        }
+        summaryText.textContent = summarySentence;
+        summaryRow.title = uniqueHosts.join(', ');
+
+        const caret = document.createElement('span');
+        caret.className = 'serp-card__caret';
+        caret.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        `;
+
+        summaryRow.appendChild(summaryText);
+        summaryRow.appendChild(caret);
+        bodyEl.appendChild(summaryRow);
+    }
+
+    if (hasResults) {
+        const label = document.createElement('div');
+        label.className = 'serp-card__label';
+        label.textContent = getToolLocaleText('tool_serpapi_search_label');
+        bodyEl.appendChild(label);
+
+        const list = document.createElement('div');
+        list.className = 'serp-card__results';
+
+        const MAX_VISIBLE = 4;
+        const hiddenNodes = [];
+
+        organicResults.forEach((item, index) => {
+            const pill = document.createElement('a');
+            pill.className = 'serp-card__pill';
+            pill.href = item.link;
+            pill.target = '_blank';
+            pill.rel = 'noopener noreferrer';
+            pill.title = item.title || item.link;
+
+            if (index >= MAX_VISIBLE) {
+                pill.classList.add('is-hidden');
+                hiddenNodes.push(pill);
+            }
+
+            const iconWrap = document.createElement('span');
+            iconWrap.className = 'serp-card__pill-icon';
+            const favicon = item.favicon || '';
+            if (favicon) {
+                const icon = document.createElement('img');
+                icon.src = favicon;
+                icon.alt = '';
+                iconWrap.appendChild(icon);
+            } else {
+                iconWrap.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.6" />
+                        <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                    </svg>
+                `;
+            }
+
+            const textWrap = document.createElement('span');
+            textWrap.className = 'serp-card__pill-text';
+            textWrap.textContent = item.title || item.link;
+
+            pill.appendChild(iconWrap);
+            pill.appendChild(textWrap);
+
+            list.appendChild(pill);
+        });
+
+        if (hiddenNodes.length > 0) {
+            let expanded = false;
+            const hiddenCount = hiddenNodes.length;
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'serp-card__pill serp-card__pill--more';
+            const collapsedText = `+ ${hiddenCount} ${getToolLocaleText('tool_serpapi_more')}`;
+            toggle.textContent = collapsedText;
+            toggle.addEventListener('click', () => {
+                expanded = !expanded;
+                hiddenNodes.forEach(node => {
+                    node.classList.toggle('is-hidden', !expanded);
+                });
+                toggle.textContent = expanded
+                    ? getToolLocaleText('tool_serpapi_show_less')
+                    : collapsedText;
+                toggle.classList.toggle('is-expanded', expanded);
+            });
+            list.appendChild(toggle);
+        }
+
+        bodyEl.appendChild(list);
+    }
+
+    const directAnswer = answerBox?.answer || answerBox?.snippet || answerBox?.result;
+    if (directAnswer) {
+        const insight = document.createElement('div');
+        insight.className = 'serp-card__insight';
+
+        const insightLabel = document.createElement('div');
+        insightLabel.className = 'serp-card__insight-label';
+        insightLabel.textContent = getToolLocaleText('tool_serpapi_answer');
+
+        const insightText = document.createElement('div');
+        insightText.className = 'serp-card__insight-text';
+        insightText.textContent = directAnswer;
+
+        insight.appendChild(insightLabel);
+        insight.appendChild(insightText);
+        bodyEl.appendChild(insight);
+    }
+
+    if (query) {
+        const queryBox = document.createElement('div');
+        queryBox.className = 'serp-card__query';
+        queryBox.textContent = query;
+        bodyEl.appendChild(queryBox);
+    }
+}
+
+function renderDalleImages(bodyEl, dalleResult, prompt) {
+    if (!bodyEl) {
+        return;
+    }
+    bodyEl.innerHTML = '';
+
+    if (prompt) {
+        const promptLabel = document.createElement('div');
+        promptLabel.className = 'tool-card__section-title';
+        promptLabel.textContent = getToolLocaleText('tool_dalle_prompt');
+
+        const promptContent = document.createElement('div');
+        promptContent.className = 'tool-card__prompt';
+        promptContent.textContent = prompt;
+
+        bodyEl.appendChild(promptLabel);
+        bodyEl.appendChild(promptContent);
+    }
+
+    const data = Array.isArray(dalleResult?.data) ? dalleResult.data : [];
+    if (data.length === 0) {
+        const emptyState = document.createElement('div');
+        emptyState.className = 'tool-card__empty';
+        emptyState.textContent = getToolLocaleText('tool_dalle_error');
+        bodyEl.appendChild(emptyState);
+        return;
+    }
+
+    const gallery = document.createElement('div');
+    gallery.className = 'tool-card__gallery';
+
+    data.forEach((item, index) => {
+        const figure = document.createElement('div');
+        figure.className = 'tool-card__figure';
+
+        const image = document.createElement('img');
+        image.className = 'tool-card__image';
+        image.alt = item.revised_prompt || `${getToolLocaleText('tool_dalle_title')} ${index + 1}`;
+
+        let imageUrl = '';
+        if (item.url) {
+            imageUrl = item.url;
+        } else if (item.b64_json) {
+            imageUrl = `data:image/png;base64,${item.b64_json}`;
+        }
+
+        if (imageUrl) {
+            image.src = imageUrl;
+        }
+
+        const actionBar = document.createElement('div');
+        actionBar.className = 'tool-card__actions';
+
+        if (imageUrl) {
+            const viewLink = document.createElement('a');
+            viewLink.className = 'tool-card__button';
+            viewLink.href = imageUrl;
+            viewLink.target = '_blank';
+            viewLink.rel = 'noopener noreferrer';
+            viewLink.textContent = getToolLocaleText('tool_dalle_view');
+
+            const downloadLink = document.createElement('a');
+            downloadLink.className = 'tool-card__button';
+            downloadLink.href = imageUrl;
+            downloadLink.download = `fisherai-dalle-${Date.now()}-${index + 1}.png`;
+            downloadLink.textContent = getToolLocaleText('tool_dalle_download');
+
+            actionBar.appendChild(viewLink);
+            actionBar.appendChild(downloadLink);
+        }
+
+        figure.appendChild(image);
+
+        if (item.revised_prompt) {
+            const caption = document.createElement('div');
+            caption.className = 'tool-card__caption';
+            caption.textContent = item.revised_prompt;
+            figure.appendChild(caption);
+        }
+
+        figure.appendChild(actionBar);
+        gallery.appendChild(figure);
+    });
+
+    bodyEl.appendChild(gallery);
+}
+
 // 展示 loading
 function displayLoading(message = 'Thinking ...') {
     const loadingDiv = document.querySelector('.my-extension-loading');
@@ -390,65 +860,187 @@ function generateUniqueId() {
 }
 
 
-function editUserMessage(messageDiv, originalText) {
-    // Create edit container
+async function editUserMessage(messageDiv, originalText) {
+    const defaults = {
+        title: '编辑消息',
+        hint: '在重新发送前微调你的提问。',
+        placeholder: '在这里修改你的消息...',
+        shortcuts: 'Ctrl+Enter 发送 / Esc 取消',
+        charCount: '当前字数 {count}',
+        save: '保存',
+        cancel: '取消'
+    };
+
+    const locale = { ...defaults };
+
+    try {
+        if (typeof window !== 'undefined' && window.i18n && typeof window.i18n.getMessages === 'function') {
+            const keys = [
+                'edit_message_title',
+                'edit_message_hint',
+                'edit_message_placeholder',
+                'edit_message_shortcuts',
+                'edit_message_char_count',
+                'save',
+                'cancel'
+            ];
+            const messages = await window.i18n.getMessages(keys);
+
+            const applyLocale = (key, fallback) => {
+                const value = messages[key];
+                return value && value !== key ? value : fallback;
+            };
+
+            locale.title = applyLocale('edit_message_title', defaults.title);
+            locale.hint = applyLocale('edit_message_hint', defaults.hint);
+            locale.placeholder = applyLocale('edit_message_placeholder', defaults.placeholder);
+            locale.shortcuts = applyLocale('edit_message_shortcuts', defaults.shortcuts);
+            locale.charCount = applyLocale('edit_message_char_count', defaults.charCount);
+            locale.save = applyLocale('save', defaults.save);
+            locale.cancel = applyLocale('cancel', defaults.cancel);
+        }
+    } catch (error) {
+        console.warn('Edit message translation fallback in use:', error);
+    }
+
     const editContainer = document.createElement('div');
     editContainer.className = 'edit-message-container';
-    
+
+    const header = document.createElement('div');
+    header.className = 'edit-message-header';
+
+    const iconWrapper = document.createElement('div');
+    iconWrapper.className = 'edit-message-icon';
+    iconWrapper.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+    `;
+
+    const headerText = document.createElement('div');
+    headerText.className = 'edit-message-text';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'edit-message-title';
+    titleEl.textContent = locale.title;
+
+    const hintEl = document.createElement('div');
+    hintEl.className = 'edit-message-hint';
+    hintEl.textContent = locale.hint;
+
+    headerText.appendChild(titleEl);
+    headerText.appendChild(hintEl);
+
+    header.appendChild(iconWrapper);
+    header.appendChild(headerText);
+
     const textArea = document.createElement('textarea');
     textArea.value = originalText;
+    textArea.placeholder = locale.placeholder;
+    textArea.setAttribute('aria-label', locale.title);
     textArea.className = 'edit-message-textarea';
-    
-    // Create button container
+
+    const footer = document.createElement('div');
+    footer.className = 'edit-message-footer';
+
+    const meta = document.createElement('div');
+    meta.className = 'edit-message-meta';
+
+    const countLabel = document.createElement('span');
+    countLabel.className = 'edit-message-count';
+
+    const shortcutsLabel = document.createElement('span');
+    shortcutsLabel.className = 'edit-message-shortcuts';
+    shortcutsLabel.textContent = locale.shortcuts;
+
+    meta.appendChild(countLabel);
+    meta.appendChild(shortcutsLabel);
+
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'edit-message-buttons';
-    
+
+    const cancelButton = document.createElement('button');
+    cancelButton.className = 'cancel-message-btn';
+    cancelButton.type = 'button';
+    cancelButton.setAttribute('aria-label', locale.cancel);
+
+    const cancelIcon = document.createElement('span');
+    cancelIcon.className = 'edit-message-button-icon';
+    cancelIcon.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    `;
+
+    const cancelText = document.createElement('span');
+    cancelText.textContent = locale.cancel;
+
+    cancelButton.appendChild(cancelIcon);
+    cancelButton.appendChild(cancelText);
+
     const saveButton = document.createElement('button');
     saveButton.className = 'save-message-btn';
-    saveButton.innerHTML = `
+    saveButton.type = 'button';
+    saveButton.setAttribute('aria-label', locale.save);
+
+    const saveIcon = document.createElement('span');
+    saveIcon.className = 'edit-message-button-icon';
+    saveIcon.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
         <polyline points="17 21 17 13 7 13 7 21"></polyline>
         <polyline points="7 3 7 8 15 8"></polyline>
       </svg>
-      <span>保存</span>
     `;
-    
-    const cancelButton = document.createElement('button');
-    cancelButton.className = 'cancel-message-btn';
-    cancelButton.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-      <span>取消</span>
-    `;
-    
+
+    const saveText = document.createElement('span');
+    saveText.textContent = locale.save;
+
+    saveButton.appendChild(saveIcon);
+    saveButton.appendChild(saveText);
+
     buttonContainer.appendChild(cancelButton);
     buttonContainer.appendChild(saveButton);
-    
+
+    footer.appendChild(meta);
+    footer.appendChild(buttonContainer);
+
+    editContainer.appendChild(header);
     editContainer.appendChild(textArea);
-    editContainer.appendChild(buttonContainer);
-    
+    editContainer.appendChild(footer);
+
     messageDiv.innerHTML = '';
     messageDiv.appendChild(editContainer);
-    
-    // Auto resize textarea
-    textArea.style.height = 'auto';
-    textArea.style.height = Math.max(textArea.scrollHeight, 80) + 'px';
-    
-    // Focus and select all text
+
+    const updateCharCount = (value) => {
+        const count = value.length;
+        if (locale.charCount.includes('{count}')) {
+            countLabel.textContent = locale.charCount.replace('{count}', count);
+        } else {
+            countLabel.textContent = `${count}`;
+        }
+    };
+
+    const autoResize = (element) => {
+        element.style.height = 'auto';
+        element.style.height = Math.max(element.scrollHeight, 80) + 'px';
+    };
+
+    autoResize(textArea);
+    updateCharCount(originalText || '');
+
+    // Focus and select all text for quick editing
     textArea.focus();
     textArea.select();
-    
-    // Auto resize on input
-    textArea.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.max(this.scrollHeight, 80) + 'px';
+
+    textArea.addEventListener('input', function () {
+        autoResize(this);
+        updateCharCount(this.value);
     });
-    
-    // Handle keyboard shortcuts
-    textArea.addEventListener('keydown', function(e) {
+
+    textArea.addEventListener('keydown', function (e) {
         if (e.ctrlKey && e.key === 'Enter') {
             e.preventDefault();
             saveEditedMessage(messageDiv, textArea.value);
@@ -457,10 +1049,10 @@ function editUserMessage(messageDiv, originalText) {
             cancelEdit(messageDiv, originalText);
         }
     });
-    
+
     saveButton.onclick = () => saveEditedMessage(messageDiv, textArea.value);
     cancelButton.onclick = () => cancelEdit(messageDiv, originalText);
-  }
+}
   
   function saveEditedMessage(messageDiv, newText) {
     messageDiv.innerHTML = newText;
@@ -744,7 +1336,3 @@ async function getEnabledModels(callback) {
     });
   }
 }
-
-
-
-

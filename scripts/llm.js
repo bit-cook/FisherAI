@@ -13,6 +13,7 @@ let currentTime;
   // 获取当前时间
   currentTime = getCurrentTime();
   const targetLanguage = await getTargetLanguage();
+  setUILanguage(targetLanguage);
   systemPrompt = SYSTEM_PROMPT.replace(/{current_time}/g, currentTime).replace(/{language}/g, targetLanguage);
 })();
 
@@ -274,6 +275,15 @@ async function parseFunctionCalling(result, baseUrl, apiKey, model, type, provid
         const toolName = tool['name'];
         let toolArgs = tool['arguments'];
 
+        const normalizedToolName = (toolName || '')
+          .toString()
+          .trim()
+          .toLowerCase()
+          .replace(/^functions\./, '');
+
+        const isSearchTool = normalizedToolName.includes('serp') || normalizedToolName.includes('search');
+        const isImageTool = normalizedToolName.includes('dalle') || normalizedToolName.includes('image');
+
         // Parse the JSON string into an object
         if(typeof toolArgs == 'string') {
           try {
@@ -285,52 +295,103 @@ async function parseFunctionCalling(result, baseUrl, apiKey, model, type, provid
         
         const contentDiv = document.querySelector('.chat-content');
         let lastDiv = contentDiv.lastElementChild;
-        if(lastDiv.innerHTML.length > 0) {
+        if (!lastDiv) {
+          createAIMessageDiv();
+          lastDiv = contentDiv.lastElementChild;
+        } else if (lastDiv.innerHTML.trim().length > 0) {
           createAIMessageDiv();
           lastDiv = contentDiv.lastElementChild;
         }
 
-        if(toolName.includes('serpapi')) {
-          // SerpAPI 搜索工具
-          const resultHtml = '正在调用 SerpAPI 联网工具...';
-          lastDiv.innerHTML = marked.parse(resultHtml);
+        if (isSearchTool) {
+          const toolCard = createToolCallCard({
+            type: 'serpapi',
+            titleText: getToolLocaleText('tool_serpapi_title'),
+            statusText: getToolLocaleText('tool_common_preparing'),
+            collapsible: true
+          });
+          lastDiv.appendChild(toolCard.card);
 
-          // 调用接口
-          const searchResult = await callSerpAPI(toolArgs['query']);
-          let htmlContent = '<p>Sources:</p><ul>';
-          for (const element of searchResult.organicResults) {
-            if(element.position > 5) {
-              // 仅取 TOP5 的搜索结果
-              break;
-            }
-            htmlContent += '<li><a class="search-source" href="' + element.link + '">' + element.title + '</a></li>';
+          const queryText = toolArgs['query'] || '';
+
+          try {
+            updateToolCardStatus(toolCard.statusEl, getToolLocaleText('tool_serpapi_running'), 'is-running');
+            const searchResult = await callSerpAPI(queryText);
+            renderSerpApiResults(toolCard.bodyEl, searchResult, queryText);
+            updateToolCardStatus(toolCard.statusEl, getToolLocaleText('tool_serpapi_success'), 'is-success');
+
+            updateToolCallChatHistory(tool, JSON.stringify({
+              status: 'success',
+              query: queryText,
+              result: searchResult
+            }));
+          } catch (error) {
+            console.error('SerpAPI tool error:', error);
+            renderToolCardError(toolCard.bodyEl, error.message || String(error));
+            updateToolCardStatus(toolCard.statusEl, getToolLocaleText('tool_common_failed'), 'is-error');
+
+            updateToolCallChatHistory(tool, JSON.stringify({
+              status: 'error',
+              query: queryText,
+              message: error.message || String(error)
+            }));
+          } finally {
+            hiddenLoadding();
           }
-          htmlContent += '</ul>';
-          lastDiv.innerHTML = marked.parse(htmlContent);
 
-          // 将搜索结果更新至对话历史
-          updateToolCallChatHistory(tool, JSON.stringify(searchResult));
+        } else if (isImageTool) {
+          const toolCard = createToolCallCard({
+            type: 'dalle',
+            titleText: getToolLocaleText('tool_dalle_title'),
+            statusText: getToolLocaleText('tool_common_preparing')
+          });
+          lastDiv.appendChild(toolCard.card);
 
-        } else if(toolName.includes('dalle')) {
-          // DALLE 图像生成
-          lastDiv.innerHTML = marked.parse('正在调用 DALLE 图像生成工具..');
+          try {
+            updateToolCardStatus(toolCard.statusEl, getToolLocaleText('tool_dalle_running'), 'is-running');
+            const dalleResult = await callDALLE(toolArgs['prompt'], toolArgs['quality'], toolArgs['size'], toolArgs['style']);
+            renderDalleImages(toolCard.bodyEl, dalleResult, toolArgs['prompt']);
+            updateToolCardStatus(toolCard.statusEl, getToolLocaleText('tool_dalle_success'), 'is-success');
 
-          console.log('tool>>>', tool);
+            updateToolCallChatHistory(tool, JSON.stringify({
+              status: 'success',
+              prompt: toolArgs['prompt'],
+              parameters: {
+                quality: toolArgs['quality'],
+                size: toolArgs['size'],
+                style: toolArgs['style']
+              },
+              result: dalleResult
+            }));
+          } catch (error) {
+            console.error('DALLE tool error:', error);
+            renderToolCardError(toolCard.bodyEl, error.message || String(error));
+            updateToolCardStatus(toolCard.statusEl, getToolLocaleText('tool_common_failed'), 'is-error');
 
-          // 调用 DALLE API & 展示结果
-          const dalleResult = await callDALLE(toolArgs['prompt'], toolArgs['quality'], toolArgs['size'], toolArgs['style']);
-          let htmlContent = '';
-          for(element of dalleResult.data) {
-            htmlContent += '<p>Prompt:</p><p>' + element.revised_prompt + "</p>";
+            updateToolCallChatHistory(tool, JSON.stringify({
+              status: 'error',
+              prompt: toolArgs['prompt'],
+              message: error.message || String(error)
+            }));
+          } finally {
+            hiddenLoadding();
           }
-
-          lastDiv.innerHTML = marked.parse(htmlContent);
-
-          // 隐藏加载按钮
+        } else {
+          console.warn('Unknown tool call received:', toolName);
+          updateToolCallChatHistory(tool, JSON.stringify({
+            status: 'error',
+            message: `Unsupported tool: ${toolName}`,
+            arguments: toolArgs
+          }));
+          const toolCard = createToolCallCard({
+            type: 'unknown',
+            titleText: toolName || getToolLocaleText('tool_common_failed'),
+            statusText: getToolLocaleText('tool_common_failed')
+          });
+          renderToolCardError(toolCard.bodyEl, `Unsupported tool: ${toolName}`);
+          updateToolCardStatus(toolCard.statusEl, getToolLocaleText('tool_common_failed'), 'is-error');
+          lastDiv.appendChild(toolCard.card);
           hiddenLoadding();
-
-          // 将dalle结果更新至对话历史
-          updateToolCallChatHistory(tool, JSON.stringify(dalleResult));
         }
     }
 
@@ -1035,7 +1096,9 @@ async function parseAndUpdateChatContent(response, type, provider) {
                 
                 // 如果有常规内容，则显示在思考内容下方
                 if (content.trim().length > 0) {
-                  completeText += content;
+                  const sanitizedTail = sanitizeAssistantVisibleText(content, { trimLeading: false });
+                  completeText += sanitizedTail;
+                  completeText = sanitizeAssistantVisibleText(completeText);
                 }
               } else {
                 // 如果没有结束标签，所有内容都是思考内容
@@ -1044,8 +1107,10 @@ async function parseAndUpdateChatContent(response, type, provider) {
                 content = ''; // 不添加到completeText
               }
             }
-            
-            completeText += content;
+
+            const sanitizedChunk = sanitizeAssistantVisibleText(content, { trimLeading: false });
+            completeText += sanitizedChunk;
+            completeText = sanitizeAssistantVisibleText(completeText);
             position = end + 1; // 更新位置，准备解析下一个对象
           } catch (error) {
             console.error('Failed to parse JSON:', error);
@@ -1108,6 +1173,26 @@ function updateThinkingContent(content, type) {
   }
 }
 
+function autoCollapseSerpApiCards(currentMessageDiv) {
+  if (!currentMessageDiv) {
+    return;
+  }
+
+  const previousBlock = currentMessageDiv.previousElementSibling;
+  if (!previousBlock || typeof setToolCardCollapsed !== 'function') {
+    return;
+  }
+
+  const serpCards = previousBlock.querySelectorAll('.tool-card-serpapi');
+  serpCards.forEach((card) => {
+    if (card.dataset.autoCollapsed === 'true') {
+      return;
+    }
+    setToolCardCollapsed(card, true);
+    card.dataset.autoCollapsed = 'true';
+  });
+}
+
 /**
  * 更新聊天内容
  * @param {string} completeText 
@@ -1159,6 +1244,10 @@ function updateChatContent(completeText, type) {
         ],
         throwOnError: false
       });
+    }
+
+    if (completeText && completeText.trim().length > 0) {
+      autoCollapseSerpApiCards(lastDiv);
     }
 
     if (isAtBottom) {
@@ -1308,7 +1397,12 @@ function addCopyButtonToTranslation(container, textToCopy) {
 async function callSerpAPI(query) {
   const keyStorage = await getValueFromChromeStorage(SERPAPI_KEY);
   let url = SERPAPI_BASE_URL + SERPAPI_PATH_URL;
-  url = url.replace('{QUERY}', query);
+  const trimmedQuery = (query || '').trim();
+  if (!trimmedQuery) {
+    throw new Error('SerpAPI 查询参数为空');
+  }
+  const safeQuery = encodeURIComponent(trimmedQuery);
+  url = url.replace('{QUERY}', safeQuery);
 
   if(!keyStorage || !keyStorage.apiKey) {
     throw new Error(' SerAPI 工具的 API Key 未配置，请检查！');
@@ -1341,13 +1435,31 @@ async function callSerpAPI(query) {
 
   const data = await response.json(); 
   
-  // Extract answer_box and organic_results
-  const answerBox = data.answer_box || {};
-  const organicResults = data.organic_results || [];
+  const answerBoxRaw = data.answer_box || data.knowledge_graph || null;
+  const answerBox = answerBoxRaw ? {
+    answer: answerBoxRaw.answer || answerBoxRaw.result || answerBoxRaw.snippet || '',
+    title: answerBoxRaw.title || '',
+    link: answerBoxRaw.link || answerBoxRaw.url || '',
+    snippet: answerBoxRaw.snippet || ''
+  } : null;
 
-   return {
-    answerBox: answerBox, 
-    organicResults: organicResults 
+  const organicResultsRaw = Array.isArray(data.organic_results) ? data.organic_results : [];
+  const organicResults = organicResultsRaw.slice(0, 8).map((item, index) => {
+    const highlighted = Array.isArray(item.snippet_highlighted_words) ? item.snippet_highlighted_words.join(' ') : '';
+    return {
+      position: item.position || index + 1,
+      title: item.title || item.link || '',
+      link: item.link || '',
+      snippet: item.snippet || highlighted || '',
+      favicon: item.favicon || '',
+      source: item.source || item.displayed_link || '',
+      date: item.date || ''
+    };
+  });
+
+  return {
+    answerBox,
+    organicResults
   };
 }
 
@@ -1372,7 +1484,12 @@ async function callDALLE(prompt, quality, size, style) {
 
   const additionalHeaders = { 'Authorization': 'Bearer ' + keyStorage.apiKey };
   const params = createRequestParams(additionalHeaders, body);
-  const response = await fetch(url, params);
+  let response;
+  try {
+    response = await fetch(url, params);
+  } finally {
+    clearTimeout(params.timeoutId);
+  }
 
   // console.log('url>>', url);
   // console.log('params>>', params);
