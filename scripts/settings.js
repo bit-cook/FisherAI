@@ -217,13 +217,11 @@ function getModelBaseParamForCheck(baseUrl, tabId, apiKey) {
           // 首先尝试使用用户编辑的模型列表中的第一个模型
           if (userModels && Array.isArray(userModels) && userModels.length > 0) {
             testModel = userModels[0];
-            console.log(`使用用户编辑的测试模型: ${testModel} (来自 ${tabId})`);
           } else {
             // 如果没有用户编辑的模型，则回退到默认模型
             const providerModels = getDefaultModels(tabId);
             if (providerModels && providerModels.length > 0) {
               testModel = providerModels[0];
-              console.log(`使用默认测试模型: ${testModel} (来自 ${tabId})`);
             } else {
               console.log(`未找到 ${tabId} 的模型列表，无法获取测试模型`);
             }
@@ -317,7 +315,6 @@ function getToolsParamForCheck(baseUrl, tabId, apiKey, modelName = '') {
 function checkAPIAvailable(baseUrl, apiKey, tabId, resultElement, modelName = '') {
   // Check if a check is already in progress for this element
   if (resultElement._isChecking) {
-    console.log('Check already in progress for:', tabId);
     return;
   }
   resultElement._isChecking = true; // Set flag
@@ -1454,14 +1451,12 @@ function initProviderToggles() {
     
     // 添加变更事件监听
     toggle.addEventListener('change', async (event) => {
-      console.log(`Provider ${provider} toggle changed to: ${event.target.checked}`);
       
       const isEnabled = event.target.checked;
       const storageObj = {};
       storageObj[`${provider}-enabled`] = isEnabled;
       
       chrome.storage.sync.set(storageObj, async () => {
-        console.log(`Provider ${provider} state saved, refreshing model lists`);
         
         // 保存设置后刷新模型列表
         await populateModelSelections();
@@ -1487,7 +1482,6 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
     
     if (modelChanges.length > 0 || providerEnabledChanges.length > 0 || mappingChange) {
       // 如果有模型列表或提供商启用状态变化，重新加载模型选择
-      console.log("检测到模型列表或提供商状态变化，重新加载模型选择");
       populateModelSelections().catch(err => {
         console.error('Error updating model selections:', err);
       });
@@ -1930,7 +1924,6 @@ function updateModelList(tabId, modelListElement, customModels) {
   });
   
   // 重新加载模型选择下拉框
-  console.log("模型列表已保存，正在刷新下拉列表...");
   populateModelSelections();
   
   // 显示保存成功提示

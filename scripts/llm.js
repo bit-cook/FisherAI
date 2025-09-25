@@ -192,7 +192,7 @@ async function chatWithLLM(model, provider, inputText, base64Images, type) {
   // 处理URL和API密钥
   var {baseUrl, apiKey} = await getBaseUrlAndApiKey(provider);
 
-  console.log('baseUrl>>>', baseUrl);
+  // console.log('baseUrl>>>', baseUrl);
 
   if(provider !== PROVIDER_FISHERAI && provider !== PROVIDER_OLLAMA) {
     if(!baseUrl) {
@@ -531,8 +531,8 @@ async function chatWithOpenAIFormat(baseUrl, apiKey, modelName, type, provider) 
   }
 
   const params = createRequestParams(additionalHeaders, body);
-  console.log(baseUrl);
-  console.log(params);
+  // console.log(baseUrl);
+  // console.log(params);
 
   return await fetchAndHandleResponse(baseUrl, params, type, provider);
 }
@@ -589,8 +589,8 @@ async function chatWithGemini(baseUrl, type, provider) {
 
   const additionalHeaders = {};
   const params = createRequestParams(additionalHeaders, body);
-  console.log(baseUrl);
-  console.log(params);
+  // console.log(baseUrl);
+  // console.log(params);
 
   return await fetchAndHandleResponse(baseUrl, params, type, provider);
 }
@@ -700,7 +700,7 @@ async function fetchAndHandleResponse(baseUrl, params, type, provider) {
     // 清除超时定时器
     clearTimeout(params.timeoutId);
 
-    console.log(response);
+    // console.log(response);
     if (!response.ok) {
       let errorMessage = '';
       const contentType = response.headers.get('content-type') || '';
@@ -968,12 +968,12 @@ async function parseAndUpdateChatContent(response, type, provider) {
     try {
       while (true) {
         const { value, done } = await reader.read();
-        console.log('done..', done);
+        // console.log('done..', done);
         if (done) break;
   
         // 处理接收到的数据
         buffer += new TextDecoder().decode(value);
-        console.log('buffer...', buffer);
+        // console.log('buffer...', buffer);
         let position = 0;
         while (position < buffer.length) {
           let start = buffer.indexOf('{', position);
@@ -989,7 +989,7 @@ async function parseAndUpdateChatContent(response, type, provider) {
           // 尝试解析找到的JSON对象
           let jsonText = buffer.substring(start, end + 1);
           try {
-            console.log('jsonText...', jsonText);
+            // console.log('jsonText...', jsonText);
             const jsonData = JSON.parse(jsonText);
             let content = '';
             let reasoningContent = ''; // 用于存储 reasoning/reason 字段内容

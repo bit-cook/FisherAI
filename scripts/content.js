@@ -20,7 +20,6 @@ function injectPageScript() {
     }
     script.onload = function() {
         this.remove();
-        console.log('[FisherAI] 页面拦截脚本注入成功');
         
         // 验证注入是否成功
         setTimeout(() => {
@@ -53,9 +52,7 @@ window.addEventListener('message', function(event) {
     if (event.data.type === 'FISHERAI_POT_INTERCEPTED' && event.data.source === 'page-interceptor') {
         const { videoId, pot, url } = event.data.data;
         if (videoId && pot) {
-            pageInterceptedPots.set(videoId, pot);
-            console.log(`[FisherAI] 内容脚本接收到pot参数: ${pot}, videoId: ${videoId}`);
-            
+            pageInterceptedPots.set(videoId, pot);            
             // 同时发送给background script保持兼容性
             chrome.runtime.sendMessage({
                 action: 'storePotParameter',
@@ -95,14 +92,10 @@ if (window.location.hostname.includes('youtube.com')) {
     new MutationObserver(() => {
         const url = location.href;
         if (url !== lastUrl) {
-            lastUrl = url;
-            console.log('[FisherAI] 检测到YouTube页面导航变化:', url);
-            
+            lastUrl = url;            
             // 页面导航后确保拦截脚本仍然有效
             setTimeout(() => {
                 if (typeof window.FisherAI_getPotParameter !== 'function') {
-                    console.log('[FisherAI] 页面导航后重新注入拦截脚本');
-                    // 重置注入标记
                     window.document.documentElement.removeAttribute('data-fisherai-injected');
                     injectPageScript();
                 }
@@ -277,7 +270,6 @@ const quickTransConfig = config[QUICK_TRANS] || {};
 const enabled = quickTransConfig.enabled !== false; // 默认启用，除非明确设置为false
 
 if(enabled === false) {
-  console.log("[FisherAI Content Script] Quick Translate is disabled.");
   // Clean up any existing elements if the setting was changed to disabled
   const existingButton = document.getElementById('fisherai-button-id');
   if (existingButton) existingButton.remove();
@@ -822,23 +814,6 @@ document.addEventListener('mousedown', function (event) {
   }
 } // End of initQuickTranslate function
 
-// 调试函数：检查快捷翻译状态
-function debugQuickTranslateStatus() {
-    console.log('[FisherAI] === 快捷翻译状态检查 ===');
-    console.log('[FisherAI] translationPopup:', !!translationPopup);
-    console.log('[FisherAI] contentContainer:', !!contentContainer);
-    console.log('[FisherAI] quickTransButton:', !!quickTransButton);
-    
-    if (quickTransButton) {
-        console.log('[FisherAI] 按钮DOM存在:', !!document.getElementById('fisherai-button-id'));
-        console.log('[FisherAI] 按钮样式display:', quickTransButton.style.display);
-    }
-    
-    // 检查事件监听器
-    const testButton = document.getElementById('fisherai-button-id');
-    console.log('[FisherAI] DOM中的按钮:', !!testButton);
-}
-
 // 初始化快捷翻译功能
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initQuickTranslate);
@@ -846,9 +821,6 @@ if (document.readyState === 'loading') {
     // DOM已经加载完成，直接初始化
     initQuickTranslate();
 }
-
-// 延迟执行调试检查
-setTimeout(debugQuickTranslateStatus, 2000);
 
 // 页面加载完成后发送页面内容到侧边栏
 function sendPageContentToSidePanel() {
@@ -924,7 +896,6 @@ new MutationObserver(() => {
   const currentUrl = location.href;
   if (currentUrl !== lastPageUrl) {
     lastPageUrl = currentUrl;
-    console.log('[FisherAI] 检测到页面导航变化:', currentUrl);
     sendPageContentToSidePanel(); // 重新发送页面内容
   }
 }).observe(document, { subtree: true, childList: true });

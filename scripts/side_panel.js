@@ -554,7 +554,6 @@ function initResultPage() {
   // 添加全局事件委托，捕获设置按钮点击
   document.addEventListener('click', function(event) {
     if (event.target && event.target.id === 'goto-settings-btn') {
-      console.log('Settings button clicked through delegation');
       openSettingsPage();
     }
   });
@@ -1571,15 +1570,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // 监听来自content script的消息
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   if (message.action === 'sendSelectedTextToSidePanel') {
-    console.log('[FisherAI] 接收到选中文本:', message.selectedText);
     showSelectedContent(message.selectedText, false);
     sendResponse({received: true});
   } else if (message.action === 'sendPageContentToSidePanel') {
-    console.log('[FisherAI] 接收到页面内容:', message.pageTitle, '内容类型:', message.contentType);
     showSelectedContent(message.pageContent, true, message.contentType);
     sendResponse({received: true});
   } else if (message.action === 'clearSelectedTextFromSidePanel') {
-    console.log('[FisherAI] 接收到清除选中内容请求');
     hideSelectedContent();
     sendResponse({received: true});
   }

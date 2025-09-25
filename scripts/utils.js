@@ -124,7 +124,6 @@ async function extractBilibiliSubtitles(paramURL, format) {
             { credentials: 'include' } // Removed USER_AGENT
         );
         const subtitleData = await subtitleResponse.json();
-        console.log(subtitleData); // Keep for debugging? Or remove?
 
         if (subtitleData.code !== 0) {
             throw new Error(`视频字幕获取失败，原因： ${subtitleData.message || '接口返回错误'}`);

@@ -26,7 +26,6 @@
                 const videoId = urlObj.searchParams.get('v');
                 
                 if (pot && videoId) {
-                    console.log('[FisherAI] Fetch拦截到字幕请求pot:', pot, 'videoId:', videoId);
                     potStorage[videoId] = pot;
                     
                     // 发送给content script
@@ -40,7 +39,6 @@
                     // 如果有pot但没有videoId，尝试从当前页面URL获取视频ID
                     const currentVideoId = getCurrentVideoId();
                     if (currentVideoId) {
-                        console.log('[FisherAI] Fetch拦截到字幕请求pot:', pot, '推断videoId:', currentVideoId);
                         potStorage[currentVideoId] = pot;
                         
                         sendToContentScript({
@@ -69,7 +67,6 @@
                 const videoId = urlObj.searchParams.get('v');
                 
                 if (pot && videoId) {
-                    console.log('[FisherAI] XHR拦截到字幕请求pot:', pot, 'videoId:', videoId);
                     potStorage[videoId] = pot;
                     
                     // 发送给content script
@@ -83,7 +80,6 @@
                     // 如果有pot但没有videoId，尝试从当前页面URL获取视频ID
                     const currentVideoId = getCurrentVideoId();
                     if (currentVideoId) {
-                        console.log('[FisherAI] XHR拦截到字幕请求pot:', pot, '推断videoId:', currentVideoId);
                         potStorage[currentVideoId] = pot;
                         
                         sendToContentScript({
@@ -116,15 +112,12 @@
     window.FisherAI_getPotParameter = function(videoId) {
         return potStorage[videoId] || null;
     };
-    
-    console.log('[FisherAI] 页面拦截器已注入，开始监听字幕请求');
-    
+        
     // 监听页面URL变化以清理过期的pot参数
     let currentVideoId = getCurrentVideoId();
     const observer = new MutationObserver(function(mutations) {
         const newVideoId = getCurrentVideoId();
         if (newVideoId && newVideoId !== currentVideoId) {
-            console.log('[FisherAI] 检测到视频切换，从', currentVideoId, '到', newVideoId);
             currentVideoId = newVideoId;
             // 可以选择清理旧的pot参数，但为了兼容性，我们保留它们
         }
