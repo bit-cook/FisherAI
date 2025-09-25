@@ -737,40 +737,54 @@ function setupCollapsibleMenus() {
 // 加载划词翻译设置
 function loadQuickTransSettings() {
   chrome.storage.sync.get('quick-trans', function(result) {
-    const quickTransInfo = result['quick-trans'];
-    if (quickTransInfo) {
-      // 设置开关状态
-      const toggleSwitch = document.getElementById('quickTransToggle');
-      if (toggleSwitch && quickTransInfo.enabled !== undefined) {
-        toggleSwitch.checked = quickTransInfo.enabled;
+    const storedInfo = result['quick-trans'] || {};
+    const quickTransInfo = {
+      enabled: storedInfo.enabled !== undefined ? storedInfo.enabled : true,
+      selectedModel: storedInfo.selectedModel || DEFAULT_QUICK_TRANS_MODEL,
+      provider: storedInfo.provider || DEFAULT_QUICK_TRANS_PROVIDER
+    };
+
+    // 设置开关状态
+    const toggleSwitch = document.getElementById('quickTransToggle');
+    if (toggleSwitch) {
+      toggleSwitch.checked = quickTransInfo.enabled !== false;
+    }
+    
+    // 设置选中的模型
+    const modelSelection = document.querySelector('#model-select');
+    if (modelSelection) {
+      // 检查是否有这个选项
+      let optionExists = false;
+      for (let i = 0; i < modelSelection.options.length; i++) {
+        if (modelSelection.options[i].value === quickTransInfo.selectedModel) {
+          optionExists = true;
+          modelSelection.selectedIndex = i;
+          break;
+        }
       }
       
-      // 设置选中的模型
-      const modelSelection = document.querySelector('#model-select');
-      if (modelSelection && quickTransInfo.selectedModel) {
-        // 检查是否有这个选项
-        let optionExists = false;
-        for (let i = 0; i < modelSelection.options.length; i++) {
-          if (modelSelection.options[i].value === quickTransInfo.selectedModel) {
-            optionExists = true;
-            modelSelection.selectedIndex = i;
-            break;
-          }
-        }
-        
-        // 如果没有找到匹配的选项，可能是Ollama模型还没加载
-        // 设置一个定时器，稍后再尝试设置
-        if (!optionExists && quickTransInfo.selectedModel.includes(PROVIDER_OLLAMA)) {
-          setTimeout(() => {
-            for (let i = 0; i < modelSelection.options.length; i++) {
-              if (modelSelection.options[i].value === quickTransInfo.selectedModel) {
-                modelSelection.selectedIndex = i;
-                break;
-              }
+      // 如果没有找到匹配的选项，可能是Ollama模型还没加载
+      // 设置一个定时器，稍后再尝试设置
+      if (!optionExists && quickTransInfo.selectedModel.includes(PROVIDER_OLLAMA)) {
+        setTimeout(() => {
+          for (let i = 0; i < modelSelection.options.length; i++) {
+            if (modelSelection.options[i].value === quickTransInfo.selectedModel) {
+              modelSelection.selectedIndex = i;
+              break;
             }
-          }, 1000); // 1秒后再次尝试
-        }
+          }
+        }, 1000); // 1秒后再次尝试
       }
+
+      // 如果默认模型存在但未在列表中，尝试选中第一个可用项
+      if (!optionExists && modelSelection.options.length > 0) {
+        modelSelection.selectedIndex = 0;
+      }
+    }
+
+    // 当存储中没有模型或提供商信息时，写入默认值，避免内容脚本缺少配置
+    if (!storedInfo.selectedModel || !storedInfo.provider) {
+      storeParams('quick-trans', quickTransInfo.enabled !== false, quickTransInfo.selectedModel, null, false, quickTransInfo.provider);
     }
   });
 }

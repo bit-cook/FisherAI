@@ -260,6 +260,12 @@ let translationPopup = null;
 let contentContainer = null;
 let quickTransButton = null; // Variable for the button as well
 
+function hideQuickTransButton() {
+  if (quickTransButton) {
+    quickTransButton.style.display = 'none';
+  }
+}
+
 // 确保DOM准备就绪后再初始化快捷翻译
 function initQuickTranslate() {
   
@@ -460,7 +466,7 @@ if (!document.getElementById('fisherai-transpop-id')) {
     // Create content container
     contentContainer = document.createElement('div');
     contentContainer.id = 'fisherai-transpop-content'; // Keep ID for potential external use/styling
-    contentContainer.style.marginTop = '32px'; // 为拖拽手柄留出空间
+    contentContainer.style.marginTop = '5px'; // 为拖拽手柄留出空间
     contentContainer.style.paddingTop = '8px';
 
     // Apply theme based on stored appearance setting
@@ -588,18 +594,40 @@ if (!document.getElementById('fisherai-button-id')) {
           minX = Math.min(minX, rect.left);
           maxX = Math.max(maxX, rect.right);
         }
-        const middleX = (minX + maxX) / 2 + window.scrollX;
+        const firstRect = rects[0];
         const lastRect = rects[rects.length - 1];
-        const topY = lastRect.bottom + window.scrollY;
+        const middleX = (minX + maxX) / 2 + window.scrollX;
 
-        // Position near the end of the selection
-        translationPopup.style.top = `${topY + 15}px`; // Offset below selection
-        // Use fixed width when positioning
-        const popupWidth = 350; // Width of popup (match the fixed width set above)
-        translationPopup.style.left = `${middleX - popupWidth / 2}px`;
+        // Prepare popup for positioning
+        translationPopup.style.display = 'block';
+        translationPopup.style.visibility = 'hidden';
+
+        const popupWidth = translationPopup.offsetWidth || 320;
+        const popupHeight = translationPopup.offsetHeight || 180;
+        const viewportTop = window.scrollY;
+        const viewportBottom = window.scrollY + window.innerHeight;
+
+        const desiredTopAbove = firstRect.top + window.scrollY - popupHeight - 15;
+        const desiredTopBelow = lastRect.bottom + window.scrollY + 15;
+
+        let topPosition = desiredTopAbove;
+        if (topPosition < viewportTop + 10) {
+          // Not enough room above, fall back below selection
+          topPosition = Math.min(desiredTopBelow, viewportBottom - popupHeight - 10);
+        }
+
+        const minLeft = window.scrollX + 10;
+        const maxLeft = window.scrollX + document.documentElement.clientWidth - popupWidth - 10;
+        let leftPosition = middleX - popupWidth / 2;
+        leftPosition = Math.max(minLeft, Math.min(leftPosition, maxLeft));
+
+        translationPopup.style.top = `${Math.max(viewportTop + 10, topPosition)}px`;
+        translationPopup.style.left = `${leftPosition}px`;
+        translationPopup.style.opacity = '0';
+        translationPopup.style.transform = 'translateY(8px)';
+        translationPopup.style.visibility = 'visible';
         
         // --- THEN: Show popup immediately with loading state ---
-        translationPopup.style.display = 'block';
         
         // Small delay for fade and slide-in effect
         setTimeout(() => {
@@ -610,15 +638,15 @@ if (!document.getElementById('fisherai-button-id')) {
         }, 10);
 
         // Hide the button itself
-        if (quickTransButton) quickTransButton.style.display = 'none';
+        hideQuickTransButton();
 
         // --- Call LLM ---
         try {
           const quickTransConfig = config[QUICK_TRANS] || {};
-          let model = quickTransConfig.selectedModel;
-          let provider = quickTransConfig.provider;
+          const model = quickTransConfig.selectedModel || DEFAULT_QUICK_TRANS_MODEL;
+          const provider = quickTransConfig.provider || DEFAULT_QUICK_TRANS_PROVIDER;
           if (!model || !provider) {
-               contentContainer.innerHTML = "Model or provider not configured.";
+               contentContainer.innerHTML = DEFAULT_TIPS;
                return;
           }
 
@@ -726,9 +754,7 @@ document.addEventListener('mouseup', function (event) {
     }
   } else {
     // No text selected or button doesn't exist, hide button
-    if (quickTransButton) {
-      quickTransButton.style.display = 'none';
-    }
+    hideQuickTransButton();
     // Do NOT hide the popup here, only hide button. Popup hides on close click or mousedown outside.
   }
 });
@@ -736,9 +762,10 @@ document.addEventListener('mouseup', function (event) {
 // 监听选中状态变化
 function checkSelectionChange() {
   const selection = window.getSelection();
-  const selectedText = selection.toString().trim();
-  
+  const selectedText = selection ? selection.toString().trim() : '';
+
   if (!selectedText) {
+    hideQuickTransButton();
     // 选中内容被清除，通知侧边栏
     try {
       chrome.runtime.sendMessage({
@@ -772,7 +799,7 @@ document.addEventListener('mousedown', function (event) {
 
   if (!clickedButton && !clickedPopup) {
       // Clicked outside, hide button and popup, clear selection
-      if (quickTransButton) quickTransButton.style.display = 'none';
+      hideQuickTransButton();
       if (translationPopup) {
         translationPopup.style.opacity = '0';
         translationPopup.style.transform = 'translateY(8px)';
@@ -989,4 +1016,3 @@ try {
 } catch (error) {
     console.warn('[FisherAI] Failed to add storage change listener:', error);
 }
-

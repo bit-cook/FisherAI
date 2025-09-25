@@ -90,6 +90,10 @@ const PROVIDER_SILICONFLOW = "siliconflow";
 const PROVIDER_XAI = "xai";
 const PROVIDER_DOUBAO = "doubao";
 
+// Default settings
+const DEFAULT_QUICK_TRANS_MODEL = 'google/gemini-flash-1.5-8b';
+const DEFAULT_QUICK_TRANS_PROVIDER = PROVIDER_FISHERAI;
+
 // 各模型默认的baseurl
 const DEFAULT_LLM_URLS = [
   { key: PROVIDER_FISHERAI, baseUrl: FISHERAI_BASE_URL, apiPath: FISHERAI_CHAT_API_PATH, enabled: true },
@@ -194,6 +198,7 @@ const MODEL_LIST = {
   free_models: [
     { value: "google/gemini-2.5-flash-lite", display: "Gemini 2.5 Flash Lite", provider: PROVIDER_FISHERAI },
     { value: "google/gemini-2.0-flash-001", display: "Gemini 2.0 Flash", provider: PROVIDER_FISHERAI },
+    { value: "google/gemini-flash-1.5-8b", display: "Gemini Flash 1.5 8B", provider: PROVIDER_FISHERAI },
     { value: "deepseek/deepseek-r1-0528:free", display: "Deepseek R1", provider: PROVIDER_FISHERAI },
     { value: "deepseek/deepseek-chat-v3.1:free", display: "Deepseek V3.1", provider: PROVIDER_FISHERAI },
     { value: "moonshotai/kimi-k2-0905", display: "Kimi K2 0905", provider: PROVIDER_FISHERAI },
