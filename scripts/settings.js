@@ -50,7 +50,7 @@ async function updateDynamicTexts(lang) {
   }
 }
 
-function storeParams(tabName, param1, param2, saveMessage, showTips = true, provider = '') {
+function storeParams(tabName, param1, param2, saveMessage, showTips = true, provider = '', extra = {}) {
   let modelInfo = {};
   if(tabName == 'quick-trans') {
     modelInfo[tabName] = {
@@ -61,7 +61,8 @@ function storeParams(tabName, param1, param2, saveMessage, showTips = true, prov
   } else {
     modelInfo[tabName] = {
       baseUrl: param1,
-      apiKey: param2
+      apiKey: param2,
+      ...extra
     };
   }
 
@@ -153,7 +154,16 @@ function openTab(evt, tabName) {
       const baseUrl = modelInfo.baseUrl;
       if(baseUrl) {
         const baseUrlInput = activeTabContent.querySelector('.baseurl-input');
-        baseUrlInput.value = baseUrl;
+        if (baseUrlInput) {
+          baseUrlInput.value = baseUrl;
+        }
+      }
+
+      if (modelInfo.hasOwnProperty('model')) {
+        const modelInput = activeTabContent.querySelector('.model-input');
+        if (modelInput) {
+          modelInput.value = modelInfo.model || '';
+        }
       }
       const enabled = modelInfo.enabled;
       if(enabled) {
@@ -207,13 +217,11 @@ function getModelBaseParamForCheck(baseUrl, tabId, apiKey) {
           // 首先尝试使用用户编辑的模型列表中的第一个模型
           if (userModels && Array.isArray(userModels) && userModels.length > 0) {
             testModel = userModels[0];
-            console.log(`使用用户编辑的测试模型: ${testModel} (来自 ${tabId})`);
           } else {
             // 如果没有用户编辑的模型，则回退到默认模型
             const providerModels = getDefaultModels(tabId);
             if (providerModels && providerModels.length > 0) {
               testModel = providerModels[0];
-              console.log(`使用默认测试模型: ${testModel} (来自 ${tabId})`);
             } else {
               console.log(`未找到 ${tabId} 的模型列表，无法获取测试模型`);
             }
@@ -261,7 +269,7 @@ function getModelBaseParamForCheck(baseUrl, tabId, apiKey) {
   });
 }
 
-function getToolsParamForCheck(baseUrl, tabId, apiKey) {
+function getToolsParamForCheck(baseUrl, tabId, apiKey, modelName = '') {
   let body = '';
   for (const { key, defaultBaseUrl, apiPath, defaultModel } of DEFAULT_TOOL_URLS) {
     if(tabId.includes(key)) {
@@ -277,6 +285,19 @@ function getToolsParamForCheck(baseUrl, tabId, apiKey) {
           n: 1,
           size: "1024x1024"
         });
+      } else if(tabId.includes(NANO_BANANA_KEY)) {
+        const resolvedModel = modelName || defaultModel;
+        body = JSON.stringify({
+          model: resolvedModel,
+          messages: [
+            {
+              role: "user",
+              content: "Create an image of a futuristic city"
+            }
+          ],
+          modalities: ["image", "text"],
+          stream: true
+        });
       }
 
       return {apiUrl, body};
@@ -291,10 +312,9 @@ function getToolsParamForCheck(baseUrl, tabId, apiKey) {
  * @param {string} tabId
  * @param {object} resultElement 
  */
-function checkAPIAvailable(baseUrl, apiKey, tabId, resultElement) {
+function checkAPIAvailable(baseUrl, apiKey, tabId, resultElement, modelName = '') {
   // Check if a check is already in progress for this element
   if (resultElement._isChecking) {
-    console.log('Check already in progress for:', tabId);
     return;
   }
   resultElement._isChecking = true; // Set flag
@@ -316,7 +336,7 @@ function checkAPIAvailable(baseUrl, apiKey, tabId, resultElement) {
 
     // 为了复用该函数，这里做一些trick
     if (tabId.includes(TOOL_KEY)) {
-      ({ apiUrl, body } = getToolsParamForCheck(baseUrl, tabId, apiKey));
+      ({ apiUrl, body } = getToolsParamForCheck(baseUrl, tabId, apiKey, modelName));
     } else {
       // 处理Promise
       ({ apiUrl, body } = await getModelBaseParamForCheck(baseUrl, tabId, apiKey));
@@ -374,6 +394,9 @@ function checkAPIAvailable(baseUrl, apiKey, tabId, resultElement) {
         const errorText = response.statusText || `状态码：${response.status}`;
         throw new Error('API 请求失败: ' + errorText);
       }
+      if (response.body && typeof response.body.cancel === 'function') {
+        response.body.cancel().catch(() => {});
+      }
     } catch (error) {
        // Reset animation before showing error
        resultElement.style.animation = 'none';
@@ -420,7 +443,8 @@ function loadOllamaModelsForQuickTrans() {
         if (response.ok) {
           return response.json();
         } else {
-          throw new Error('Network response was not ok.');
+          const statusInfo = [response.status, response.statusText].filter(Boolean).join(' ');
+          throw new Error(`拉取 Ollama 模型失败${statusInfo ? `（${statusInfo}）` : ''}`);
         }
       })
       .then(data => {
@@ -586,7 +610,7 @@ function setupSaveButtons() {
       const tabContent = this.closest('.tab-content');
       const tabId = tabContent.id;
       const baseUrlInput = tabContent.querySelector('.baseurl-input');
-      const baseUrl = baseUrlInput.value.trim();
+      const baseUrl = baseUrlInput ? baseUrlInput.value.trim() : '';
       
       // 如果是 Ollama 提供商，只保存 base URL
       if (tabId === PROVIDER_OLLAMA) {
@@ -624,7 +648,11 @@ function setupSaveButtons() {
       const saveMessage = tabContent.querySelector('.save-message');
       
       // 保存KV & 显示保存成功
-      storeParams(tabId, baseUrl, apiKey, saveMessage);
+      const modelInput = tabContent.querySelector('.model-input');
+      const modelName = modelInput ? modelInput.value.trim() : '';
+      const extraConfig = modelInput ? { model: modelName } : {};
+
+      storeParams(tabId, baseUrl, apiKey, saveMessage, true, '', extraConfig);
     });
   });
   
@@ -679,9 +707,18 @@ function setupCheckApiButtons() {
 
       // api 代理地址
       var baseUrlInput = tabContent.querySelector('.baseurl-input');
-      var baseUrl = baseUrlInput.value || baseUrlInput.getAttribute("placeholder");
+      var baseUrl = '';
+      if (baseUrlInput) {
+        baseUrl = baseUrlInput.value || baseUrlInput.getAttribute("placeholder") || '';
+      }
 
-      checkAPIAvailable(baseUrl, apiKey, tabId, resultElement);
+      var modelInput = tabContent.querySelector('.model-input');
+      var modelName = '';
+      if (modelInput) {
+        modelName = modelInput.value || modelInput.getAttribute("placeholder") || '';
+      }
+
+      checkAPIAvailable(baseUrl, apiKey, tabId, resultElement, modelName);
     });
   });
 }
@@ -700,40 +737,54 @@ function setupCollapsibleMenus() {
 // 加载划词翻译设置
 function loadQuickTransSettings() {
   chrome.storage.sync.get('quick-trans', function(result) {
-    const quickTransInfo = result['quick-trans'];
-    if (quickTransInfo) {
-      // 设置开关状态
-      const toggleSwitch = document.getElementById('quickTransToggle');
-      if (toggleSwitch && quickTransInfo.enabled !== undefined) {
-        toggleSwitch.checked = quickTransInfo.enabled;
+    const storedInfo = result['quick-trans'] || {};
+    const quickTransInfo = {
+      enabled: storedInfo.enabled !== undefined ? storedInfo.enabled : true,
+      selectedModel: storedInfo.selectedModel || DEFAULT_QUICK_TRANS_MODEL,
+      provider: storedInfo.provider || DEFAULT_QUICK_TRANS_PROVIDER
+    };
+
+    // 设置开关状态
+    const toggleSwitch = document.getElementById('quickTransToggle');
+    if (toggleSwitch) {
+      toggleSwitch.checked = quickTransInfo.enabled !== false;
+    }
+    
+    // 设置选中的模型
+    const modelSelection = document.querySelector('#model-select');
+    if (modelSelection) {
+      // 检查是否有这个选项
+      let optionExists = false;
+      for (let i = 0; i < modelSelection.options.length; i++) {
+        if (modelSelection.options[i].value === quickTransInfo.selectedModel) {
+          optionExists = true;
+          modelSelection.selectedIndex = i;
+          break;
+        }
       }
       
-      // 设置选中的模型
-      const modelSelection = document.querySelector('#model-select');
-      if (modelSelection && quickTransInfo.selectedModel) {
-        // 检查是否有这个选项
-        let optionExists = false;
-        for (let i = 0; i < modelSelection.options.length; i++) {
-          if (modelSelection.options[i].value === quickTransInfo.selectedModel) {
-            optionExists = true;
-            modelSelection.selectedIndex = i;
-            break;
-          }
-        }
-        
-        // 如果没有找到匹配的选项，可能是Ollama模型还没加载
-        // 设置一个定时器，稍后再尝试设置
-        if (!optionExists && quickTransInfo.selectedModel.includes(PROVIDER_OLLAMA)) {
-          setTimeout(() => {
-            for (let i = 0; i < modelSelection.options.length; i++) {
-              if (modelSelection.options[i].value === quickTransInfo.selectedModel) {
-                modelSelection.selectedIndex = i;
-                break;
-              }
+      // 如果没有找到匹配的选项，可能是Ollama模型还没加载
+      // 设置一个定时器，稍后再尝试设置
+      if (!optionExists && quickTransInfo.selectedModel.includes(PROVIDER_OLLAMA)) {
+        setTimeout(() => {
+          for (let i = 0; i < modelSelection.options.length; i++) {
+            if (modelSelection.options[i].value === quickTransInfo.selectedModel) {
+              modelSelection.selectedIndex = i;
+              break;
             }
-          }, 1000); // 1秒后再次尝试
-        }
+          }
+        }, 1000); // 1秒后再次尝试
       }
+
+      // 如果默认模型存在但未在列表中，尝试选中第一个可用项
+      if (!optionExists && modelSelection.options.length > 0) {
+        modelSelection.selectedIndex = 0;
+      }
+    }
+
+    // 当存储中没有模型或提供商信息时，写入默认值，避免内容脚本缺少配置
+    if (!storedInfo.selectedModel || !storedInfo.provider) {
+      storeParams('quick-trans', quickTransInfo.enabled !== false, quickTransInfo.selectedModel, null, false, quickTransInfo.provider);
     }
   });
 }
@@ -1414,14 +1465,12 @@ function initProviderToggles() {
     
     // 添加变更事件监听
     toggle.addEventListener('change', async (event) => {
-      console.log(`Provider ${provider} toggle changed to: ${event.target.checked}`);
       
       const isEnabled = event.target.checked;
       const storageObj = {};
       storageObj[`${provider}-enabled`] = isEnabled;
       
       chrome.storage.sync.set(storageObj, async () => {
-        console.log(`Provider ${provider} state saved, refreshing model lists`);
         
         // 保存设置后刷新模型列表
         await populateModelSelections();
@@ -1447,7 +1496,6 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
     
     if (modelChanges.length > 0 || providerEnabledChanges.length > 0 || mappingChange) {
       // 如果有模型列表或提供商启用状态变化，重新加载模型选择
-      console.log("检测到模型列表或提供商状态变化，重新加载模型选择");
       populateModelSelections().catch(err => {
         console.error('Error updating model selections:', err);
       });
@@ -1541,6 +1589,11 @@ function loadSettings() {
       if(baseUrl && activeTabContent) {
         const baseUrlInput = activeTabContent.querySelector('.baseurl-input');
         if (baseUrlInput) baseUrlInput.value = baseUrl;
+      }
+
+      if (modelInfo.hasOwnProperty('model') && activeTabContent) {
+        const modelInput = activeTabContent.querySelector('.model-input');
+        if (modelInput) modelInput.value = modelInfo.model || '';
       }
       
       const enabled = modelInfo.enabled;
@@ -1885,7 +1938,6 @@ function updateModelList(tabId, modelListElement, customModels) {
   });
   
   // 重新加载模型选择下拉框
-  console.log("模型列表已保存，正在刷新下拉列表...");
   populateModelSelections();
   
   // 显示保存成功提示
@@ -1905,4 +1957,3 @@ function updateModelList(tabId, modelListElement, customModels) {
     }, 2000);
   }
 }
-

@@ -252,7 +252,7 @@ body {
   width: 50%;
 }
 
-.api-key-input, .baseurl-input {
+.api-key-input, .baseurl-input, .model-input {
   flex-grow: 1;
   padding: 10px;
   border-radius: 5px;

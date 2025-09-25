@@ -1468,6 +1468,17 @@
                             </svg>
                         </div>
                     </div>
+                    <div class="feature-item clickable-feature" data-tab="tool_nano-banana">
+                        <div class="feature-icon">
+                            <font size="5">🍌</font>
+                        </div>
+                        <div class="feature-text">Nano Banana</div>
+                        <div class="feature-arrow">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1557,6 +1568,59 @@
                     <button class="checkapi-button" data-i18n="check_api">连通性测试</button>
                 </div>
                 
+                <div class="message-container">
+                    <div class="checkapi-message" style="display:none;" data-i18n="check_api_success">检查通过</div> 
+                    <div class="save-message" style="display:none;" data-i18n="success">保存成功！</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="tool_nano-banana">
+        <div class="general-container">
+            <div class="general-section">
+                <h2 data-i18n="apply_for_api_key" class="gradient-heading">申请 API Key 官方地址</h2>
+                <div class="link-container">
+                    <a href="https://openrouter.ai/keys" class="provider-link" target="_blank"> https://openrouter.ai/keys </a>
+                </div>
+
+                <h2 data-i18n="api_key" class="gradient-heading">API Key</h2>
+                <div class="input-container">
+        <div class="password-wrapper">
+            <input type="password" class="api-key-input" placeholder="Enter your API Key">
+            <button class="toggle-password">
+                            <svg class="show-password" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 5C5.63636 5 2 12 2 12C2 12 5.63636 19 12 19C18.3636 19 22 12 22 12C22 12 18.3636 5 12 5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <svg class="hide-password" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: none;">
+                                <path d="M2 2L22 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M6.71277 6.7226C3.66479 8.79527 2 12 2 12C2 12 5.63636 19 12 19C14.0503 19 15.8174 18.2734 17.2711 17.2884M11 5.05822C11.3254 5.02013 11.6588 5 12 5C18.3636 5 22 12 22 12C22 12 21.3082 13.3317 20 14.8335" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M14 12C14 12.5523 13.7761 13.0523 13.4142 13.4142C13.0523 13.7761 12.5523 14 12 14C11.4477 14 10.9477 13.7761 10.5858 13.4142C10.2239 13.0523 10 12.5523 10 12C10 11.4477 10.2239 10.9477 10.5858 10.5858C10.9477 10.2239 11.4477 10 12 10C12.5523 10 13.0523 10.2239 13.4142 10.5858C13.7761 10.9477 14 11.4477 14 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+            </button>
+        </div>
+                </div>
+
+                <h2 data-i18n="base_url" class="gradient-heading">API 代理地址</h2>
+                <div class="input-container">
+        <div class="baseurl-wrapper">
+            <input type="input" class="baseurl-input" placeholder="https://openrouter.ai/api/v1/chat/completions">
+        </div>
+        </div>
+
+                <h2 data-i18n="model_name" class="gradient-heading">模型名称</h2>
+                <div class="input-container">
+        <div class="baseurl-wrapper">
+            <input type="input" class="model-input" placeholder="google/gemini-2.5-flash-image-preview">
+        </div>
+        </div>
+
+                <div class="button-container">
+                    <button class="save-button" data-i18n="save">保存</button>
+                    <button class="checkapi-button" data-i18n="check_api">连通性测试</button>
+                </div>
+
                 <div class="message-container">
                     <div class="checkapi-message" style="display:none;" data-i18n="check_api_success">检查通过</div> 
                     <div class="save-message" style="display:none;" data-i18n="success">保存成功！</div>

@@ -32,7 +32,6 @@ window.fetch = function(...args) {
               url: url,
               timestamp: Date.now()
             });
-            console.log(`Intercepted transcript for video: ${videoId}`);
           }).catch(err => {
             console.error('Error reading transcript response:', err);
           });
@@ -70,7 +69,6 @@ async function getPotParameter(videoId) {
     if (typeof window !== 'undefined' && typeof window.getPotParameterFromPage === 'function') {
       const pagePot = window.getPotParameterFromPage(videoId);
       if (pagePot) {
-        console.log(`[FisherAI] 从页面拦截器获取到pot参数: ${pagePot}`);
         resolve(pagePot);
         return;
       }
@@ -83,9 +81,9 @@ async function getPotParameter(videoId) {
         (response) => {
           const bgPot = response?.pot;
           if (bgPot) {
-            console.log(`[FisherAI] 从background获取到pot参数: ${bgPot}`);
+            // console.log(`[FisherAI] 从background获取到pot参数: ${bgPot}`);
           } else {
-            console.log(`[FisherAI] 未找到视频 ${videoId} 的pot参数`);
+            // console.log(`[FisherAI] 未找到视频 ${videoId} 的pot参数`);
           }
           resolve(bgPot);
         }
@@ -153,7 +151,7 @@ class YoutubeTranscript {
     // 首先尝试从缓存获取字幕数据
     const cachedTranscript = getCachedTranscript(identifier);
     if (cachedTranscript) {
-      console.log(`Using cached transcript for video: ${identifier}`);
+      // console.log(`Using cached transcript for video: ${identifier}`);
       return this.parseTranscriptResponse(cachedTranscript, config, identifier);
     }
     
@@ -227,7 +225,7 @@ class YoutubeTranscript {
       url.searchParams.set('fmt', "json3");
       url.searchParams.set('c', "WEB");
       transcriptURL = url.toString();
-      console.log(`Using pot parameter: ${cachedPot} for video: ${identifier}`);
+      // console.log(`Using pot parameter: ${cachedPot} for video: ${identifier}`);
     } else {
       console.warn(`No pot parameter found for video: ${identifier}, using original URL`);
     }
@@ -243,8 +241,8 @@ class YoutubeTranscript {
     }
     const transcriptBody = await transcriptResponse.text();
 
-    console.log('transcriptURL', transcriptURL);
-    console.log('transcriptBody', transcriptBody);
+    // console.log('transcriptURL', transcriptURL);
+    // console.log('transcriptBody', transcriptBody);
     
     return this.parseTranscriptResponse(transcriptBody, config, identifier, captions);
   }

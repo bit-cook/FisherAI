@@ -25,6 +25,13 @@ function applyAppearanceMode() {
 }
 
 /**
+ * 打开设置页面
+ */
+function openSettingsPage() {
+  chrome.runtime.sendMessage({ action: "openSettings" });
+}
+
+/**
  * 更新动态文本（那些不通过data-i18n属性设置的文本）
  */
 async function updateDynamicTexts(lang) {
@@ -51,17 +58,6 @@ async function updateDynamicTexts(lang) {
   SHORTCUT_POLISH = messages.shortcut_polish;
   SHORTCUT_CODE_EXPLAIN = messages.shortcut_code_explain;
   SHORTCUT_IMAGE2TEXT = messages.shortcut_image2text;
-  
-  // 为API KEY设置按钮添加点击事件（如果存在）
-  document.addEventListener('DOMContentLoaded', function() {
-    const setupKeyBtn = document.getElementById('goto-settings-btn');
-    if (setupKeyBtn) {
-      setupKeyBtn.addEventListener('click', function() {
-        console.log('Settings button clicked');
-        chrome.runtime.sendMessage({ action: "openSettings" });
-      });
-    }
-  });
   
   // 更新模型选择下拉框的 optgroup 标签
   const modelSelect = document.getElementById('model-selection');
@@ -105,17 +101,6 @@ async function verifyApiKeyConfigured(provider) {
     var contentDiv = document.querySelector('.chat-content');
     contentDiv.innerHTML = DEFAULT_TIPS;
     
-    // 立即绑定设置按钮事件
-    setTimeout(() => {
-      const setupKeyBtn = document.getElementById('goto-settings-btn');
-      if (setupKeyBtn) {
-        setupKeyBtn.addEventListener('click', function() {
-          console.log('Settings button clicked from verify function');
-          chrome.runtime.sendMessage({ action: "openSettings" });
-        });
-      }
-    }, 0);
-    
     return false;
   }
 
@@ -127,9 +112,13 @@ async function verifyApiKeyConfigured(provider) {
  */
 function hideRecommandContent() {
   const sloganDiv = document.querySelector('.my-extension-slogan');
-  sloganDiv.style.display = 'none';
+  if (sloganDiv) {
+    sloganDiv.style.display = 'none';
+  }
   const featureDiv = document.querySelector('.feature-container');
-  featureDiv.style.display = 'none';
+  if (featureDiv) {
+    featureDiv.style.display = 'none';
+  }
 }
 
 /**
@@ -137,9 +126,13 @@ function hideRecommandContent() {
  */
 function showRecommandContent() {
   const sloganDiv = document.querySelector('.my-extension-slogan');
-  sloganDiv.style.display = '';
+  if (sloganDiv) {
+    sloganDiv.style.display = '';
+  }
   const featureDiv = document.querySelector('.feature-container');
-  featureDiv.style.display = '';
+  if (featureDiv) {
+    featureDiv.style.display = '';
+  }
 }
 
 /**
@@ -187,8 +180,11 @@ async function chatLLMAndUIUpdate(model, provider, inputText, base64Images) {
     createCopyButton(completeText);
   } catch (error) {
     hiddenLoadding();
-    displayErrorMessage(`${error.message}`);
     console.error('请求异常:', error);
+    displayErrorMessage(error, {
+      context: '生成回答',
+      defaultMessage: '暂时无法生成回答，请稍后再试或检查模型配置。'
+    });
   } finally {
     // submit & generating button
     showSubmitBtnAndHideGenBtn();
@@ -321,6 +317,19 @@ function toggleShortcutMenu(inputField, shortcutMenu) {
   }
 }
 
+function updatePreviewAreaVisibility() {
+  const previewArea = document.querySelector('.image-preview-area');
+  if (!previewArea) {
+    return;
+  }
+  const hasItems = previewArea.querySelector('.img-container') !== null;
+  if (hasItems) {
+    previewArea.classList.add('is-visible');
+  } else {
+    previewArea.classList.remove('is-visible');
+  }
+}
+
 function handleUploadFiles(event) {
   var files = event.target.files;
   var previewArea = document.querySelector('.image-preview-area');
@@ -347,6 +356,8 @@ function handleUploadFiles(event) {
     deleteBtn.removeAttribute('id');
     deleteBtn.addEventListener('click', function() {
         previewArea.removeChild(imgContainer);
+        updatePreviewAreaVisibility();
+        updateSubmitButton();
     });
 
     // 预览
@@ -368,6 +379,7 @@ function handleUploadFiles(event) {
     imgContainer.appendChild(img);
     imgContainer.appendChild(deleteBtn);
     previewArea.appendChild(imgContainer);
+    updatePreviewAreaVisibility();
   });
 
   // 清空文件输入
@@ -401,7 +413,8 @@ function loadOllamaModels(callback) {
         if (response.ok) {
           return response.json();
         } else {
-          throw new Error('Network response was not ok.');
+          const statusInfo = [response.status, response.statusText].filter(Boolean).join(' ');
+          throw new Error(`拉取 Ollama 模型失败${statusInfo ? `（${statusInfo}）` : ''}`);
         }
       })
       .then(data => {
@@ -497,12 +510,15 @@ function loadModelParams() {
 }
 
 function loadToolsSelectedStatus() {
-  chrome.storage.sync.get([SERPAPI, DALLE], (result) => {
+  chrome.storage.sync.get([SERPAPI, DALLE, NANO_BANANA], (result) => {
     if (result.serpapi !== undefined) {
         document.getElementById(SERPAPI).checked = result.serpapi;
     }
     if (result.dalle !== undefined) {
         document.getElementById(DALLE).checked = result.dalle;
+    }
+    if (result[NANO_BANANA] !== undefined) {
+        document.getElementById(NANO_BANANA).checked = result[NANO_BANANA];
     }
   });
 }
@@ -538,8 +554,7 @@ function initResultPage() {
   // 添加全局事件委托，捕获设置按钮点击
   document.addEventListener('click', function(event) {
     if (event.target && event.target.id === 'goto-settings-btn') {
-      console.log('Settings button clicked through delegation');
-      chrome.runtime.sendMessage({ action: "openSettings" });
+      openSettingsPage();
     }
   });
 
@@ -675,6 +690,7 @@ function initResultPage() {
       // 清空上传图片预览界面
       const previewArea = document.querySelector('.image-preview-area');
       previewArea.innerHTML = '';
+      updatePreviewAreaVisibility();
       // 清空历史记录
       initChatHistory();
       // 展示推荐内容
@@ -712,7 +728,10 @@ function initResultPage() {
       } catch(error) {
         hiddenLoadding();
         console.error('智能摘要失败', error);
-        displayErrorMessage(`智能摘要失败: ${error.message}`);
+        displayErrorMessage(error, {
+          context: '智能摘要',
+          defaultMessage: '暂时无法生成摘要，请稍后重试。'
+        });
         return;
       }
 
@@ -750,7 +769,10 @@ function initResultPage() {
       } catch(error) {
         hiddenLoadding();
         console.error('网页翻译失败', error);
-        displayErrorMessage(`网页翻译失败: ${error.message}`);
+        displayErrorMessage(error, {
+          context: '网页翻译',
+          defaultMessage: '暂时无法翻译当前页面，请稍后重试。'
+        });
         return;
       }
 
@@ -783,12 +805,15 @@ function initResultPage() {
       } catch(error) {
         hiddenLoadding();
         console.error('视频翻译失败', error);
-        displayErrorMessage(`视频翻译失败: ${error.message}`);
+        displayErrorMessage(error, {
+          context: '视频翻译',
+          defaultMessage: '暂时无法翻译当前视频，请稍后再试。'
+        });
         return;
       }
 
       const subTitleTransPrompt = await getSubTitleTransPrompt();
-     
+
       await clearAndGenerate(model, provider, subTitleTransPrompt + inputText, null);
     });
 
@@ -805,7 +830,7 @@ function initResultPage() {
     if (settingsButton) {
       settingsButton.addEventListener('click', function() {
         // 发送消息到background script打开新标签页
-        chrome.runtime.sendMessage({ action: "openSettings" });
+        openSettingsPage();
       });
     }
 
@@ -966,7 +991,8 @@ function initResultPage() {
             // 隐藏初始推荐内容
             hideRecommandContent();
 
-            let inputText = userInput.value;
+            const originalUserText = userInput.value;
+            let inputText = originalUserText;
             
             // 获取当前上下文内容
             const contextContent = getCurrentContextContent();
@@ -1024,7 +1050,7 @@ function initResultPage() {
               });
             }
             // 只显示用户的原始输入，不包含上下文内容
-            userMessage += userInput.value;
+            userMessage += originalUserText;
             userQuestionDiv.innerHTML = userMessage;
 
             // Add edit button
@@ -1037,7 +1063,7 @@ function initResultPage() {
               </svg>
             `;
             // 传递原始输入用于编辑
-            editButton.onclick = () => editUserMessage(userQuestionDiv, userInput.value);
+            editButton.onclick = () => editUserMessage(userQuestionDiv, originalUserText);
             userQuestionDiv.appendChild(editButton);
 
             const contentDiv = document.querySelector('.chat-content');
@@ -1072,6 +1098,7 @@ function initResultPage() {
             // 清空上传图片预览界面
             const previewArea = document.querySelector('.image-preview-area');
             previewArea.innerHTML = '';
+            updatePreviewAreaVisibility();
 
             // 清除选中内容标签
             hideSelectedContent();
@@ -1223,14 +1250,131 @@ function isVideoUrl(url) {
   return patterns.some(pattern => pattern.test(url));
 }
 
+function normalizeErrorTitle(context, explicitTitle) {
+  if (explicitTitle) {
+    return explicitTitle;
+  }
+  if (context) {
+    if (/(失败|异常|错误|取消)$/.test(context)) {
+      return context;
+    }
+    return `${context}失败`;
+  }
+  return '请求异常';
+}
+
+function extractErrorMessageText(errorInput) {
+  if (errorInput == null) {
+    return '';
+  }
+  if (errorInput instanceof Error && typeof errorInput.message === 'string') {
+    return errorInput.message;
+  }
+  if (typeof errorInput === 'string') {
+    return errorInput;
+  }
+  if (typeof errorInput === 'object') {
+    if (typeof errorInput.message === 'string') {
+      return errorInput.message;
+    }
+    if (typeof errorInput.error === 'string') {
+      return errorInput.error;
+    }
+    if (errorInput.error && typeof errorInput.error.message === 'string') {
+      return errorInput.error.message;
+    }
+    if (typeof errorInput.statusText === 'string') {
+      return errorInput.statusText;
+    }
+    try {
+      const serialized = JSON.stringify(errorInput);
+      return serialized === '{}' ? '' : serialized;
+    } catch (serializationError) {
+      return '';
+    }
+  }
+  return String(errorInput);
+}
+
+function deriveFriendlyErrorDetail(rawMessage, defaultMessage) {
+  const fallbackDetail = defaultMessage || '发生未知错误，请稍后重试。';
+  const trimmedMessage = (rawMessage || '').trim();
+  if (!trimmedMessage) {
+    return { detail: fallbackDetail, raw: '' };
+  }
+
+  const normalized = trimmedMessage.toLowerCase();
+  const mappings = [
+    { pattern: /(aborterror|the operation was aborted|request was aborted|user aborted)/i, message: '请求已取消。' },
+    { pattern: /(failed to fetch|networkerror|network request failed|net::|connection (?:refused|reset|aborted|closed)|dns|ssl|certificate)/i, message: '网络请求失败，请检查网络连接或 API 代理配置。' },
+    { pattern: /(timeout|timed out|超时)/i, message: '请求超时，请稍后重试。' },
+    { pattern: /(401|unauthorized|invalid api key|incorrect api key|no api key)/i, message: '身份验证失败，请检查 API Key 是否正确配置。' },
+    { pattern: /(429|too many requests|rate limit)/i, message: '请求过于频繁，请稍后再试。' },
+    { pattern: /(insufficient[_\s-]?quota|余额不足|\bquota\b|\bquotas\b|credit limit|\bcredit\b)/i, message: '账号配额不足，请检查账户状态或更换模型。' },
+    { pattern: /(403|forbidden|access denied|permission)/i, message: '服务拒绝请求，可能是权限或配额不足。' },
+    { pattern: /(500|502|503|504|server error|bad gateway|service unavailable)/i, message: '服务暂时不可用，请稍后重试。' }
+  ];
+
+  for (const mapping of mappings) {
+    if (mapping.pattern.test(normalized)) {
+      return { detail: mapping.message, raw: trimmedMessage };
+    }
+  }
+
+  return { detail: trimmedMessage, raw: '' };
+}
+
+function buildErrorDisplayInfo(errorInput, options) {
+  const opts = options || {};
+  const rawMessage = extractErrorMessageText(errorInput);
+  const detailInfo = deriveFriendlyErrorDetail(rawMessage, opts.defaultMessage);
+  return {
+    title: normalizeErrorTitle(opts.context, opts.title),
+    detail: detailInfo.detail,
+    raw: detailInfo.raw && detailInfo.raw !== detailInfo.detail ? detailInfo.raw : ''
+  };
+}
+
 /**
  * 显示错误信息
- * @param {string} message 
+ * @param {Error|string|Object} errorInput
+ * @param {{context?: string, title?: string, defaultMessage?: string}|string} [options]
  */
-function displayErrorMessage(message) {
+function displayErrorMessage(errorInput, options) {
+  const normalizedOptions = typeof options === 'string' ? { context: options } : (options || {});
   hideRecommandContent();
   const contentDiv = document.querySelector('.chat-content');
-  contentDiv.innerHTML = `<div class="error-message">${message}</div>`;
+  if (!contentDiv) {
+    return;
+  }
+
+  const info = buildErrorDisplayInfo(errorInput, normalizedOptions);
+  const container = document.createElement('div');
+  container.className = 'error-message';
+
+  if (info.title) {
+    const titleElement = document.createElement('div');
+    titleElement.className = 'error-message__title';
+    titleElement.textContent = info.title;
+    container.appendChild(titleElement);
+  }
+
+  if (info.detail) {
+    const detailElement = document.createElement('div');
+    detailElement.className = 'error-message__detail';
+    detailElement.textContent = info.detail;
+    container.appendChild(detailElement);
+  }
+
+  if (info.raw) {
+    const rawElement = document.createElement('div');
+    rawElement.className = 'error-message__raw';
+    rawElement.textContent = `详细信息：${info.raw}`;
+    container.appendChild(rawElement);
+  }
+
+  contentDiv.innerHTML = '';
+  contentDiv.appendChild(container);
 }
  
 
@@ -1426,15 +1570,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // 监听来自content script的消息
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   if (message.action === 'sendSelectedTextToSidePanel') {
-    console.log('[FisherAI] 接收到选中文本:', message.selectedText);
     showSelectedContent(message.selectedText, false);
     sendResponse({received: true});
   } else if (message.action === 'sendPageContentToSidePanel') {
-    console.log('[FisherAI] 接收到页面内容:', message.pageTitle, '内容类型:', message.contentType);
     showSelectedContent(message.pageContent, true, message.contentType);
     sendResponse({received: true});
   } else if (message.action === 'clearSelectedTextFromSidePanel') {
-    console.log('[FisherAI] 接收到清除选中内容请求');
     hideSelectedContent();
     sendResponse({received: true});
   }
@@ -1459,4 +1600,3 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
     }
   }
 });
-

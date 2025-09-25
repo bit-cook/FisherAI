@@ -20,7 +20,6 @@ function injectPageScript() {
     }
     script.onload = function() {
         this.remove();
-        console.log('[FisherAI] 页面拦截脚本注入成功');
         
         // 验证注入是否成功
         setTimeout(() => {
@@ -53,9 +52,7 @@ window.addEventListener('message', function(event) {
     if (event.data.type === 'FISHERAI_POT_INTERCEPTED' && event.data.source === 'page-interceptor') {
         const { videoId, pot, url } = event.data.data;
         if (videoId && pot) {
-            pageInterceptedPots.set(videoId, pot);
-            console.log(`[FisherAI] 内容脚本接收到pot参数: ${pot}, videoId: ${videoId}`);
-            
+            pageInterceptedPots.set(videoId, pot);            
             // 同时发送给background script保持兼容性
             chrome.runtime.sendMessage({
                 action: 'storePotParameter',
@@ -95,14 +92,10 @@ if (window.location.hostname.includes('youtube.com')) {
     new MutationObserver(() => {
         const url = location.href;
         if (url !== lastUrl) {
-            lastUrl = url;
-            console.log('[FisherAI] 检测到YouTube页面导航变化:', url);
-            
+            lastUrl = url;            
             // 页面导航后确保拦截脚本仍然有效
             setTimeout(() => {
                 if (typeof window.FisherAI_getPotParameter !== 'function') {
-                    console.log('[FisherAI] 页面导航后重新注入拦截脚本');
-                    // 重置注入标记
                     window.document.documentElement.removeAttribute('data-fisherai-injected');
                     injectPageScript();
                 }
@@ -267,6 +260,12 @@ let translationPopup = null;
 let contentContainer = null;
 let quickTransButton = null; // Variable for the button as well
 
+function hideQuickTransButton() {
+  if (quickTransButton) {
+    quickTransButton.style.display = 'none';
+  }
+}
+
 // 确保DOM准备就绪后再初始化快捷翻译
 function initQuickTranslate() {
   
@@ -277,7 +276,6 @@ const quickTransConfig = config[QUICK_TRANS] || {};
 const enabled = quickTransConfig.enabled !== false; // 默认启用，除非明确设置为false
 
 if(enabled === false) {
-  console.log("[FisherAI Content Script] Quick Translate is disabled.");
   // Clean up any existing elements if the setting was changed to disabled
   const existingButton = document.getElementById('fisherai-button-id');
   if (existingButton) existingButton.remove();
@@ -468,7 +466,7 @@ if (!document.getElementById('fisherai-transpop-id')) {
     // Create content container
     contentContainer = document.createElement('div');
     contentContainer.id = 'fisherai-transpop-content'; // Keep ID for potential external use/styling
-    contentContainer.style.marginTop = '32px'; // 为拖拽手柄留出空间
+    contentContainer.style.marginTop = '5px'; // 为拖拽手柄留出空间
     contentContainer.style.paddingTop = '8px';
 
     // Apply theme based on stored appearance setting
@@ -596,18 +594,40 @@ if (!document.getElementById('fisherai-button-id')) {
           minX = Math.min(minX, rect.left);
           maxX = Math.max(maxX, rect.right);
         }
-        const middleX = (minX + maxX) / 2 + window.scrollX;
+        const firstRect = rects[0];
         const lastRect = rects[rects.length - 1];
-        const topY = lastRect.bottom + window.scrollY;
+        const middleX = (minX + maxX) / 2 + window.scrollX;
 
-        // Position near the end of the selection
-        translationPopup.style.top = `${topY + 15}px`; // Offset below selection
-        // Use fixed width when positioning
-        const popupWidth = 350; // Width of popup (match the fixed width set above)
-        translationPopup.style.left = `${middleX - popupWidth / 2}px`;
+        // Prepare popup for positioning
+        translationPopup.style.display = 'block';
+        translationPopup.style.visibility = 'hidden';
+
+        const popupWidth = translationPopup.offsetWidth || 320;
+        const popupHeight = translationPopup.offsetHeight || 180;
+        const viewportTop = window.scrollY;
+        const viewportBottom = window.scrollY + window.innerHeight;
+
+        const desiredTopAbove = firstRect.top + window.scrollY - popupHeight - 15;
+        const desiredTopBelow = lastRect.bottom + window.scrollY + 15;
+
+        let topPosition = desiredTopAbove;
+        if (topPosition < viewportTop + 10) {
+          // Not enough room above, fall back below selection
+          topPosition = Math.min(desiredTopBelow, viewportBottom - popupHeight - 10);
+        }
+
+        const minLeft = window.scrollX + 10;
+        const maxLeft = window.scrollX + document.documentElement.clientWidth - popupWidth - 10;
+        let leftPosition = middleX - popupWidth / 2;
+        leftPosition = Math.max(minLeft, Math.min(leftPosition, maxLeft));
+
+        translationPopup.style.top = `${Math.max(viewportTop + 10, topPosition)}px`;
+        translationPopup.style.left = `${leftPosition}px`;
+        translationPopup.style.opacity = '0';
+        translationPopup.style.transform = 'translateY(8px)';
+        translationPopup.style.visibility = 'visible';
         
         // --- THEN: Show popup immediately with loading state ---
-        translationPopup.style.display = 'block';
         
         // Small delay for fade and slide-in effect
         setTimeout(() => {
@@ -618,15 +638,15 @@ if (!document.getElementById('fisherai-button-id')) {
         }, 10);
 
         // Hide the button itself
-        if (quickTransButton) quickTransButton.style.display = 'none';
+        hideQuickTransButton();
 
         // --- Call LLM ---
         try {
           const quickTransConfig = config[QUICK_TRANS] || {};
-          let model = quickTransConfig.selectedModel;
-          let provider = quickTransConfig.provider;
+          const model = quickTransConfig.selectedModel || DEFAULT_QUICK_TRANS_MODEL;
+          const provider = quickTransConfig.provider || DEFAULT_QUICK_TRANS_PROVIDER;
           if (!model || !provider) {
-               contentContainer.innerHTML = "Model or provider not configured.";
+               contentContainer.innerHTML = DEFAULT_TIPS;
                return;
           }
 
@@ -734,9 +754,7 @@ document.addEventListener('mouseup', function (event) {
     }
   } else {
     // No text selected or button doesn't exist, hide button
-    if (quickTransButton) {
-      quickTransButton.style.display = 'none';
-    }
+    hideQuickTransButton();
     // Do NOT hide the popup here, only hide button. Popup hides on close click or mousedown outside.
   }
 });
@@ -744,9 +762,10 @@ document.addEventListener('mouseup', function (event) {
 // 监听选中状态变化
 function checkSelectionChange() {
   const selection = window.getSelection();
-  const selectedText = selection.toString().trim();
-  
+  const selectedText = selection ? selection.toString().trim() : '';
+
   if (!selectedText) {
+    hideQuickTransButton();
     // 选中内容被清除，通知侧边栏
     try {
       chrome.runtime.sendMessage({
@@ -780,7 +799,7 @@ document.addEventListener('mousedown', function (event) {
 
   if (!clickedButton && !clickedPopup) {
       // Clicked outside, hide button and popup, clear selection
-      if (quickTransButton) quickTransButton.style.display = 'none';
+      hideQuickTransButton();
       if (translationPopup) {
         translationPopup.style.opacity = '0';
         translationPopup.style.transform = 'translateY(8px)';
@@ -822,23 +841,6 @@ document.addEventListener('mousedown', function (event) {
   }
 } // End of initQuickTranslate function
 
-// 调试函数：检查快捷翻译状态
-function debugQuickTranslateStatus() {
-    console.log('[FisherAI] === 快捷翻译状态检查 ===');
-    console.log('[FisherAI] translationPopup:', !!translationPopup);
-    console.log('[FisherAI] contentContainer:', !!contentContainer);
-    console.log('[FisherAI] quickTransButton:', !!quickTransButton);
-    
-    if (quickTransButton) {
-        console.log('[FisherAI] 按钮DOM存在:', !!document.getElementById('fisherai-button-id'));
-        console.log('[FisherAI] 按钮样式display:', quickTransButton.style.display);
-    }
-    
-    // 检查事件监听器
-    const testButton = document.getElementById('fisherai-button-id');
-    console.log('[FisherAI] DOM中的按钮:', !!testButton);
-}
-
 // 初始化快捷翻译功能
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initQuickTranslate);
@@ -846,9 +848,6 @@ if (document.readyState === 'loading') {
     // DOM已经加载完成，直接初始化
     initQuickTranslate();
 }
-
-// 延迟执行调试检查
-setTimeout(debugQuickTranslateStatus, 2000);
 
 // 页面加载完成后发送页面内容到侧边栏
 function sendPageContentToSidePanel() {
@@ -924,7 +923,6 @@ new MutationObserver(() => {
   const currentUrl = location.href;
   if (currentUrl !== lastPageUrl) {
     lastPageUrl = currentUrl;
-    console.log('[FisherAI] 检测到页面导航变化:', currentUrl);
     sendPageContentToSidePanel(); // 重新发送页面内容
   }
 }).observe(document, { subtree: true, childList: true });
@@ -1018,4 +1016,3 @@ try {
 } catch (error) {
     console.warn('[FisherAI] Failed to add storage change listener:', error);
 }
-

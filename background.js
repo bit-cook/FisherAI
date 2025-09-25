@@ -10,7 +10,6 @@ chrome.webRequest.onBeforeRequest.addListener(
     
     if (pot && v) {
       potCache.set(v, pot);
-      console.log(`Background: Captured pot parameter for video ${v}: ${pot}`);
     }
   },
   {
@@ -42,7 +41,6 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
     // 存储从页面拦截器获取的pot参数
     if (message.videoId && message.pot) {
       potCache.set(message.videoId, message.pot);
-      console.log(`Background: Stored pot parameter from page interceptor for video ${message.videoId}: ${message.pot}`);
     }
     return true;
   } else if (message.action === "sendSelectedTextToSidePanel" || message.action === "sendPageContentToSidePanel" || message.action === "clearSelectedTextFromSidePanel") {
@@ -51,7 +49,7 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
       if (tabs[0]) {
         // 向侧边栏发送消息
         chrome.runtime.sendMessage(message).catch(err => {
-          console.log('Failed to send message to side panel:', err);
+          // console.log('Failed to send message to side panel:', err);
         });
       }
     });
