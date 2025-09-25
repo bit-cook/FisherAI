@@ -25,23 +25,26 @@ FisherAI 是一款强大的 Chrome 插件，专注于提升您的网页浏览和
 ## 🖼️ 界面预览
 
 <div align="center">
-    <img src="public/main.png" alt="FisherAI 主界面" width="80%">
+    <img src="public/mainpage-0925.png" alt="FisherAI 主界面" width="80%">
 </div>
 <br/>
 <div align="center">
-    <img src="public/settings-general.png" alt="FisherAI 设置界面" width="80%">
+    <img src="public/settings.png" alt="FisherAI 设置界面" width="80%">
 </div>
 <br/>
 <div align="center">
-    <img src="public/settings-provider.png" alt="FisherAI 设置界面" width="80%">
+    <img src="public/models.png" alt="FisherAI 设置界面" width="80%">
 </div>
 <br/>
 <div align="center">
-    <img src="public/settings-toolbox.png" alt="FisherAI 设置界面" width="80%">
+    <img src="public/toolbox.png" alt="FisherAI 设置界面" width="80%">
 </div>
 <br/>
 <div align="center">
-    <img src="public/settings-quicktrans.png" alt="FisherAI 设置界面" width="80%">
+    <img src="public/huaci.png" alt="FisherAI 设置界面" width="80%">
+</div>
+<div align="center">
+    <img src="public/prompts.png" alt="FisherAI 设置界面" width="80%">
 </div>
 <br/>
 
