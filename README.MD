@@ -74,6 +74,12 @@ OLLAMA_ORIGINS=* ollama serve
 
 ## 📝 更新日志
 
+### 2025-09-25
+- ✨ **新增画图工具** ：Nano Banana
+- ✨ **优化 agent 能力** ：支持多工具调用
+- 🚀 **体验改进**: 使用 Codex CLI 进行代码和界面优化
+- 🚀 **更新至最新模型**：gpt-5、gpt-5-codex、claude-sonnet-4、grok-4-fast、kimi k20905 等等
+
 ### 2025-04-13
 - ✨ **支持更多模型供应商**: 支持更多模型供应商，如 OpenAI、Gemini、xAI、OpenRouter、Siliconflow、DeepSeek、Doubao 等。
 - ✨ **支持自定义 Prompt**: 支持自定义 Prompt，支持多种场景的 Prompt 设置。
